@@ -3,12 +3,12 @@ import { customElement, property } from 'lit/decorators.js';
 
 @customElement('hlm-size-input')
 export default class SizeInput extends LitElement {
-  @property({ type: Number }) height = 53;
-  @property({ type: Number }) width = 84.5;
+  @property({ type: Number }) height = 0;
+  @property({ type: Number }) width = 0;
   @property({ type: String }) unit = '';
 
   #emitChange() {
-    const event = new CustomEvent('resize', {
+    const event = new CustomEvent<[number, number]>('resize', {
         detail: [this.width, this.height],
         bubbles: true,
         composed: true
@@ -16,19 +16,19 @@ export default class SizeInput extends LitElement {
     this.dispatchEvent(event);
   }
 
-  #onWidthChange(event) {
-    this.width = parseFloat(event.currentTarget.value);
+  #onWidthChange(event: Event) {
+    this.width = parseFloat((event.currentTarget as HTMLInputElement).value);
     this.#emitChange();
   }
 
-  #onHeightChange(event) {
-    this.height = parseFloat(event.currentTarget.value);
+  #onHeightChange(event: Event) {
+    this.height = parseFloat((event.currentTarget as HTMLInputElement).value);
     this.#emitChange();
   }
 
   render() {
     return html`
-        <h3><slot></slot></h3>
+        <strong><slot></slot></strong>
 
         <div class="size-inputs">
             <div class="input">
@@ -48,7 +48,8 @@ export default class SizeInput extends LitElement {
   }
 
   static styles = css`
-    h3 {
+    strong {
+      display: inline-block;
       margin: 0.5rem 0;
     }
 
