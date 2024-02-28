@@ -4,6 +4,7 @@ import { customElement, property, query, state } from 'lit/decorators.js';
 import HLMStorage from './storage';
 
 import type { Fixture, HLMStorageKey } from './types';
+import { keyProxy } from './window';
 
 @customElement('hlm-fixtures')
 export default class Fixtures extends LitElement {
@@ -12,6 +13,7 @@ export default class Fixtures extends LitElement {
   @state() fixtures: Array<Fixture> = [];
   @state() fixture?: Fixture;
   @state() fixtureIndex?: number;
+  @state() _fixturePlacementIndex?: number;
 
   @query('#fixture') fixtureModal?: HTMLDialogElement;
   @query('#name') fixtureName?: HTMLInputElement;
@@ -57,6 +59,16 @@ export default class Fixtures extends LitElement {
 
   #setPlacement(event: MouseEvent) {
     const id = parseInt((event.target as HTMLButtonElement).dataset.id ?? '', 10);
+
+    if (this._fixturePlacementIndex === id) {
+      this._fixturePlacementIndex = undefined;
+      this.fixture = undefined;
+    } else {
+      this._fixturePlacementIndex = this.fixtures.findIndex(f => f.id === id);
+      this.fixture = this.fixtures[this._fixturePlacementIndex];
+    }
+
+    keyProxy.fixture = this._fixturePlacementIndex ?? -1;
   }
 
   #removeFixture(event: MouseEvent) {
@@ -85,10 +97,10 @@ export default class Fixtures extends LitElement {
     this.fixtureModal!.close();
   }
 
-  #renderFixture(fixture: Fixture) {
+  #renderFixture(fixture: Fixture, index: number) {
     return html`
       <li class="fixture-row">
-        <strong>${fixture.name}</strong>
+        <strong>${index === this._fixturePlacementIndex ? '* ' : ''}${fixture.name}</strong>
         <button data-id=${fixture.id} @click=${this.#setFixtureDetails}>Update</button>
         <button data-id=${fixture.id} @click=${this.#setPlacement}>Set Placement</button>
         <button data-id=${fixture.id} @click=${this.#removeFixture}>Delete</button>

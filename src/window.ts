@@ -13,18 +13,37 @@ async function onMapKeyUpdate(key: HLMStorageKey) {
   }
 }
 
+async function onFixtureUpdate(fixtureId: number) {
+  const screen = document.body.querySelector('hlm-screen');
+  if (screen) {
+    await screen.updateComplete;
+    screen.fixtureId = fixtureId;
+  }
+}
+
 type GlobalKeys = {
     hlm?: HLMStorageKey;
+    fixture?: number;
 };
 
 const _keys: GlobalKeys = {};
 export const keyProxy = new Proxy(_keys, {
   set: function(target, key, value) {
-    const newValue = value?.trim();
-    if (key === 'hlm') {
-      target[key] = newValue;
-      onMapKeyUpdate(newValue ?? 'hlm-null');
+    switch (key) {
+      case 'hlm':
+        // This value comes from HTML dataset and so will always be a string
+        const newValue = value?.trim();
+        target[key] = newValue;
+        onMapKeyUpdate(newValue ?? 'hlm-null');
+        return true;
+
+      case 'fixture':
+        target[key] = value;
+        onFixtureUpdate(value);
+        return true;
+
+      default:
+        return false;
     }
-    return true;
   }
 });

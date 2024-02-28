@@ -6,17 +6,20 @@ import './size-input.ts';
 
 import HLMStorage from './storage.ts';
 
-import type { AspectRatio, HLMStorageKey, LedLayout, LedLayoutKey } from './types.ts';
+import type { AspectRatio, Fixture, HLMStorageKey, LedLayout, LedLayoutKey } from './types.ts';
 
 @customElement('hlm-screen')
 export default class Screen extends LitElement {
   @property({ type: String, attribute: 'active-map-key', reflect: true }) activeMapKey: HLMStorageKey = 'hlm-null';
+  @property({ type: Number, attribute: 'fixture-id', reflect: true }) fixtureId: number = -1;
+
   @property({ type: Number }) height = 0;
   @property({ type: Number }) width = 0;
   @property({ type: Number }) aspectMultiplier = 0;
   @property({ type: String }) aspectRatio: AspectRatio = '16:10';
 
   @state() _calculatedHeight = 0;
+  @state() _fixture?: Fixture;
 
   @query('.screen') screenDiv?: HTMLDivElement;
 
@@ -29,6 +32,12 @@ export default class Screen extends LitElement {
     const key = _changedProperties.get('activeMapKey');
     if (key !== this.activeMapKey) {
       this.#setLocalProps();
+    }
+
+    const fixtureId = _changedProperties.get('fixtureId');
+    if (_changedProperties.has('fixtureId') && fixtureId !== this.fixtureId) {
+      const fixtures = HLMStorage.retrieve<Fixture[]>('fixtures', this.activeMapKey);
+      this._fixture = fixtures.find(f => f.id === this.fixtureId);
     }
   }
 

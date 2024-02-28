@@ -28,7 +28,7 @@ export default class HLMStorage {
         localStorage.setItem(key, JSON.stringify(item));
     }
 
-    static retrieve(item: string, key: HLMStorageKey): any {
+    static retrieve<K = any>(item: string, key: HLMStorageKey): K {
         let currentValue = JSON.parse(localStorage.getItem(key) ?? '{}');
         return currentValue[item];
     }

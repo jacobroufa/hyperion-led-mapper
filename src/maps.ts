@@ -1,6 +1,5 @@
 import { LitElement, css, html } from 'lit';
-import { customElement, property, query, state } from 'lit/decorators.js';
-import { classMap } from 'lit-html/directives/class-map.js';
+import { customElement, property, query } from 'lit/decorators.js';
 
 import HLMStorage from './storage';
 import { keyProxy } from './window';
