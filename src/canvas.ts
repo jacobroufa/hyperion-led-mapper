@@ -20,7 +20,7 @@ export default class HLMCanvas extends HLMElement {
     if (hscan < 0) hscan = 0;
     if (vscan < 0) vscan = 0;
 
-    this.emit<HLMCanvasClickEvent>('hlm-event-canvas-click', [this._float(vscan), this._float(hscan)]);
+    this.emit<HLMCanvasClickEvent>('hlm-event-canvas-click', [this._float(hscan), this._float(vscan)]);
   }
 
   render() {

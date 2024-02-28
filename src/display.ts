@@ -64,7 +64,7 @@ export default class Display extends HLMElement {
   #mouseClick(event: CustomEvent<HLMCanvasClickEvent>) {
     if (!this._fixture) return;
 
-    const [vscan, hscan] = event.detail
+    const [hscan, vscan] = event.detail
     const fixWidth = (this._fixture?.width ?? 0) / this.width;
     const fixHeight = (this._fixture?.height ?? 0) / this.height;
     let left = hscan - (fixWidth / 2);
@@ -77,7 +77,7 @@ export default class Display extends HLMElement {
 
     this._fixture = {
       ...this._fixture,
-      coords: [this._float(top), this._float(left)]
+      coords: [this._float(left), this._float(top)]
     }
 
     const fixtureArrayId = this.fixtures.findIndex(f => f.id === this.fixtureId);
@@ -106,7 +106,7 @@ export default class Display extends HLMElement {
     this.fixtures.forEach(fixture => {
       const relativeFixtureHeight = (fixture?.height ?? 0) / this.height;
       const displayHeight = parseInt((relativeFixtureHeight * this._calculatedHeight).toFixed(), 10);
-      const displayTop = this._calculatedHeight * fixture.coords[0];
+      const displayTop = this._calculatedHeight * fixture.coords[1];
       this._fixtureHeights[fixture.id] = [displayHeight, displayTop];
     });
 
@@ -143,7 +143,7 @@ export default class Display extends HLMElement {
     const relativeFixtureWidth = (fixture?.width ?? 0) / this.width;
     const fixWidth = parseInt((relativeFixtureWidth * width).toFixed(), 10);
     const [fixHeight, top] = this._fixtureHeights[fixture.id];
-    const left = width * fixture.coords[1];
+    const left = width * fixture.coords[0];
 
     return html`
       <div
@@ -192,7 +192,7 @@ export default class Display extends HLMElement {
 
       <hlm-canvas
         .height=${this._calculatedHeight}
-        .width=${this.calculatedWidth}
+        .width=${this._calculatedWidth}
         @hlm-event-canvas-click=${this.#mouseClick}>
         ${this.fixtures.map(this.renderFixture.bind(this))}
       </hlm-canvas>

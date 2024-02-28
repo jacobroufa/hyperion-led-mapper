@@ -12,7 +12,7 @@ import HLMElement from './element';
 import HLMStorage from './storage';
 import watch from './watch.ts';
 
-import type { Fixture, FixtureShape, HLMCanvasClickEvent } from './types';
+import type { Fixture, FixtureShape } from './types';
 import { Point } from '@svgdotjs/svg.js';
 import { PointArray } from '@svgdotjs/svg.js';
 
@@ -28,8 +28,11 @@ export default class Fixtures extends HLMElement {
   @query('details') fixtureList?: HTMLDetailsElement;
   @query('#fixture') fixtureModal?: HTMLDialogElement;
   @query('#name') fixtureName?: HTMLInputElement;
+  @query('#led-count') fixtureLedCount?: HTMLInputElement;
+  @query('#led-offset') fixtureLedOffset?: HTMLInputElement;
+  @query('#led-position') fixtureLedPosition?: HTMLInputElement;
   @query('#shape-select') fixtureShape?: HTMLSelectElement;
-  @query('#poly-select') fixtureVertices?: HTMLSelectElement;
+  @query('#poly-select') fixtureVertices?: HTMLInputElement;
   @query('#shape-upload') fixtureSVGUpload?: HTMLInputElement;
   @query('hlm-canvas') fixtureCanvas?: HLMCanvas;
 
@@ -124,31 +127,6 @@ export default class Fixtures extends HLMElement {
     this.#updateFixture(true);
   }
 
-  #setFixtureLed(event: CustomEvent<HLMCanvasClickEvent>) {
-    // const { offsetLeft, offsetTop, offsetWidth: width, offsetHeight: height } = this.fixtureCanvas!;
-    // console.log(this.fixtureCanvas, offsetLeft, width, offsetTop, height)
-    // // const left = width - offsetLeft;
-    // // const top = height - offsetTop;
-    // const hscan = this._float(event.x / width);
-    // const vscan = this._float(event.y / height);
-
-    // console.log(event.x, event.y, hscan, vscan, width, height)
-
-    // let led: LedLayout = {
-    //   hmax: this._float(hscan + 0.005),
-    //   hmin: this._float(hscan - 0.005),
-    //   vmax: this._float(vscan + 0.005),
-    //   vmin: this._float(vscan - 0.005)
-    // };
-
-    // (Object.keys(led) as Array<LedLayoutKey>).forEach(key => {
-    //   if (led[key] < 0) led[key] = 0;
-    //   if (led[key] > 1) led[key] = 1;
-    // });
-
-    console.log(this.tagName, 'fixture led values', event.detail);
-  }
-
   #updateFixtureName() {
     const fix = this.fixture!;
     fix.name = this.fixtureName!.value;
@@ -165,6 +143,33 @@ export default class Fixtures extends HLMElement {
     this.fixture = fix;
 
     this.#updateFixture();
+  }
+
+  #updateFixtureLedCount() {
+    const fix = this.fixture!;
+    fix.ledCount = parseInt(this.fixtureLedCount!.value, 10);
+
+    this.fixture = fix;
+
+    this.#updateFixture(true);
+  }
+
+  #updateFixtureLedOffset() {
+    const fix = this.fixture!;
+    fix.ledOffset = parseInt(this.fixtureLedOffset!.value, 10);
+
+    this.fixture = fix;
+
+    this.#updateFixture(true);
+  }
+
+  #updateFixtureLedPosition() {
+    const fix = this.fixture!;
+    fix.ledPosition = parseInt(this.fixtureLedPosition!.value, 10);
+
+    this.fixture = fix;
+
+    this.#updateFixture(true);
   }
 
   #updateFixtureShape() {
@@ -192,26 +197,6 @@ export default class Fixtures extends HLMElement {
   }
 
   #updateFixture(drawSvg = false) {
-    const fixtures = [...this.fixtures];
-    const index = fixtures.findIndex(f => f.id === this.fixtureIndex);
-
-    if (index === -1) {
-      fixtures.push(this.fixture!);
-
-      // creating a new fixture, allow it to be placed immediately
-      this.#updatePlacementIndex(this.fixtureIndex);
-    } else {
-      fixtures.splice(index, 1, this.fixture!);
-    }
-
-    this.fixtures = fixtures;
-
-    this.requestUpdate();
-
-    HLMStorage.store('fixtures', fixtures, this.activeMapKey);
-
-    this.emit('hlm-event-fixture-update');
-
     if (drawSvg) {
       const canvas = this.fixtureCanvas?.querySelector('svg');
       const drawing = canvas ? SVG(canvas).clear() : SVG().addTo(this.fixtureCanvas!);
@@ -247,27 +232,56 @@ export default class Fixtures extends HLMElement {
 
       const len = shape.length()
       let arr: Array<any> | PointArray = new PointArray([]);
-      for (let i = 0; i < len; i += (len / 31)) {
-        let r = drawing.rect(5, 5)
+      let ledOffset = this.fixture!.ledOffset ?? 0;
+      let ledCount = this.fixture!.ledCount ?? 1;
+      let ledPosition = this.fixture!.ledPosition ?? 0;
+      let ledSpacing = len / ledCount;
+      let offset = ledOffset >= 0 ? ledOffset : ledCount + ledOffset;
+
+      if (ledPosition > ledSpacing) {
+        ledPosition = ledPosition - (ledSpacing * Math.floor(ledPosition / ledSpacing))
+      }
+
+      for (let i = ledPosition, o = 0; i < len; i += ledSpacing, o++) {
+        let r = drawing.rect(6, 6)
         let p = new Point(shape.pointAt(i))
-        r.move(p.x - 2.5, p.y - 2.5)
+
+        r.move(p.x - 3, p.y - 3)
+
+        if (o === offset) {
+          r.fill('#0f0')
+        }
+
         arr.push(p.toArray())
       }
 
-      arr = arr.map(([x, y]) => ({
-        hmin: x - 2.5,
-        hmax: x + 2.5,
-        vmin: y - 2.5,
-        vmax: y + 2.5
-      })).map(led => ({
-        hmin: led.hmin < 0 ? 0 : led.hmin,
-        hmax: led.hmin < 0 ? led.hmax + led.hmin : led.hmax,
-        vmin: led.vmin < 0 ? 0 : led.vmin,
-        vmax: led.vmin < 0 ? led.vmax + led.vmin : led.vmax
-      }));
+      arr = arr.map(([x, y]) => ([
+        this._float(x / this._calculatedWidth),
+        this._float(y / this._calculatedHeight)
+      ]));
 
-      console.log(arr)
+      this.fixture!.leds = arr;
     }
+
+    const fixtures = [...this.fixtures];
+    const index = fixtures.findIndex(f => f.id === this.fixtureIndex);
+
+    if (index === -1) {
+      fixtures.push(this.fixture!);
+
+      // creating a new fixture, allow it to be placed immediately
+      this.#updatePlacementIndex(this.fixtureIndex);
+    } else {
+      fixtures.splice(index, 1, this.fixture!);
+    }
+
+    this.fixtures = fixtures;
+
+    this.requestUpdate();
+
+    HLMStorage.store('fixtures', fixtures, this.activeMapKey);
+
+    this.emit('hlm-event-fixture-update');
   }
 
   #renderFixtureRow(fixture: Fixture) {
@@ -320,6 +334,43 @@ export default class Fixtures extends HLMElement {
         </hlm-size-input>
 
         <div class="fixture-edit-input">
+          <strong>LED Layout</strong>
+          <div class="input">
+            <label for="led-count">Number of LEDs:</label>
+            <input
+              type="number"
+              name="led-count"
+              id="led-count"
+              @change=${this.#updateFixtureLedCount}
+              .value=${(this.fixture?.ledCount ?? 1).toString()}
+            />
+          </div>
+          <div class="input">
+            <label for="led-count">Initial LED Offset:</label>
+            <input
+              type="number"
+              name="led-offset"
+              id="led-offset"
+              .min=${(-(this.fixture?.ledCount ?? 1)).toString()}
+              .max=${(this.fixture?.ledCount ?? 1).toString()}
+              @change=${this.#updateFixtureLedOffset}
+              .value=${(this.fixture?.ledOffset ?? 0).toString()}
+            />
+          </div>
+          <div class="input">
+            <label for="led-count">Initial LED Position:</label>
+            <input
+              type="number"
+              name="led-position"
+              id="led-position"
+              min="0"
+              @change=${this.#updateFixtureLedPosition}
+              .value=${(this.fixture?.ledPosition ?? 0).toString()}
+            />
+          </div>
+        </div>
+
+        <div class="fixture-edit-input">
           <strong>Shape</strong>
           ${when(this.fixture?.shape !== 'custom', () => html`
             <div class="input">
@@ -357,7 +408,6 @@ export default class Fixtures extends HLMElement {
           <hlm-canvas
             .height=${this._calculatedHeight}
             .width=${this._calculatedWidth}
-            @hlm-event-canvas-click=${this.#setFixtureLed}
           ></hlm-canvas>
         </div>
 
