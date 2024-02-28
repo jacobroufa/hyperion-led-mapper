@@ -3,13 +3,13 @@ import { customElement, property } from 'lit/decorators.js';
 
 @customElement('hlm-size-input')
 export default class SizeInput extends LitElement {
-  @property({ type: Number }) height = 0;
-  @property({ type: Number }) width = 0;
-  @property({ type: String }) unit = '';
+  @property({ type: Number }) height: number = 0;
+  @property({ type: Number }) width: number = 0;
+  @property({ type: String }) unit: string = 'px';
 
   #emitChange() {
     const event = new CustomEvent<[number, number]>('resize', {
-        detail: [this.width, this.height],
+        detail: [this.width ?? 0, this.height ?? 0],
         bubbles: true,
         composed: true
     });
@@ -34,16 +34,22 @@ export default class SizeInput extends LitElement {
             <div class="input">
                 <label for="width">Width</label>
                 <div class="input-container">
-                    <input name="width" type="number" @change=${this.#onWidthChange} value=${this.width} />
+                    <input name="width" type="number" @change=${this.#onWidthChange} .value=${this.width.toString()} />
                 </div>
             </div>
             <div class="input">
                 <label for="height">Height</label>
                 <div class="input-container">
-                    <input name="height" type="number" @change=${this.#onHeightChange} value=${this.height} />
+                    <input name="height" type="number" @change=${this.#onHeightChange} .value=${this.height.toString()} />
                 </div>
             </div>
         </div>
+
+        <style>
+          .input-container::after {
+            content: ${unsafeCSS(this.unit)};
+          }
+        </style>
     `;
   }
 
@@ -84,10 +90,6 @@ export default class SizeInput extends LitElement {
       .input-container::after {
         right: 1.5rem;
       }
-    }
-
-    .input-container::after {
-      content: ${unsafeCSS(this.unit)};
     }
   `;
 }

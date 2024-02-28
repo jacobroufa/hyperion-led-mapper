@@ -1,8 +1,10 @@
 import { LitElement, css, html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 
-export type AspectRatio = '4:3' | '16:9' | '16:10';
+import type { AspectRatio } from './types';
+
 export const ratioMultiplier: { [k in AspectRatio]: number } = {
+  '1:1': 1,
   '4:3': 0.75,
   '16:10': 0.625,
   '16:9': 0.5625
@@ -10,12 +12,12 @@ export const ratioMultiplier: { [k in AspectRatio]: number } = {
 
 @customElement('hlm-ratio-input')
 export default class RatioInput extends LitElement {
-  @property({ type: String }) aspectRatio: AspectRatio = '4:3';
-  @property({ type: Number }) aspectMultiplier = ratioMultiplier['4:3'];
+  @property({ type: String }) aspectRatio: AspectRatio = '1:1';
+  @property({ type: Number }) aspectMultiplier: number = 1;
 
   #emitChange() {
     const event = new CustomEvent<[number, AspectRatio]>('ratiochange', {
-        detail: [this.aspectMultiplier, this.aspectRatio],
+        detail: [this.aspectMultiplier, this.aspectRatio!],
         bubbles: true,
         composed: true
     });
@@ -31,15 +33,22 @@ export default class RatioInput extends LitElement {
     this.#emitChange();
   }
 
+  #renderOption(key: AspectRatio) {
+    const value = ratioMultiplier[key as AspectRatio];
+    const active = this.aspectMultiplier === value;
+
+    return html`<option .value="${value.toString()}" ?selected=${active}>${key}</option>`
+  }
+
   render() {
+    const ratios = Object.keys(ratioMultiplier) as Array<AspectRatio>;
+
     return html`
         <strong>Aspect Ratio</strong>
 
         <div class="input">
-          <select name="ratio" @change=${this.#onRatioChange} value=${this.aspectMultiplier}>
-            ${Object.keys(ratioMultiplier).map(key => html`
-              <option value="${ratioMultiplier[key as AspectRatio]}">${key}</option>
-            `)}
+          <select name="ratio" @change=${this.#onRatioChange} .value=${this.aspectMultiplier.toString()}>
+            ${ratios.map(this.#renderOption.bind(this))}
           </select>
         </div>
     `;

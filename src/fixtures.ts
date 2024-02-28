@@ -1,15 +1,49 @@
 import { LitElement, css, html } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
+
+import HLMStorage from './storage';
+
+import type { Fixture, HLMStorageKey } from './types';
 
 @customElement('hlm-fixtures')
 export default class Fixtures extends LitElement {
-  @property({ type: Number }) height = 53;
-  @property({ type: Number }) width = 84.5;
+  @property({ type: String, attribute: 'active-map-key', reflect: true }) activeMapKey?: HLMStorageKey;
 
-  #setDimensions(event: CustomEvent<[number, number]>) {
-    const [width, height] = event.detail;
-    this.height = height;
-    this.width = width;
+  @state() fixtures: Array<Fixture> = [];
+  @state() fixture?: Fixture;
+
+  @query('#fixture') fixtureModal?: HTMLDialogElement;
+
+  constructor() {
+    super();
+
+    this.#setLocalProps();
+  }
+
+  updated(changedProperties: Map<keyof Fixtures, Fixtures[keyof Fixtures]>) {
+    const newMapKey = changedProperties.get('activeMapKey');
+    if ((!newMapKey || newMapKey === this.activeMapKey) || !this.activeMapKey) return;
+
+    this.#setLocalProps();
+  }
+
+  #setLocalProps() {
+    if (!this.activeMapKey) return;
+    this.fixtures = HLMStorage.retrieve('fixtures', this.activeMapKey) ?? [];
+  }
+
+  #setFixtureDetails(event: MouseEvent) {
+    const id = (event.target as HTMLButtonElement).dataset['id'];
+
+    if (id === 'create') {
+
+    }
+  }
+
+  #renderFixture(fixture: Fixture) {
+    return html`
+      <button data-id=${fixture.id} @click=${this.#setFixtureDetails}>${fixture.name}</button>
+    `;
   }
 
   render() {
@@ -17,12 +51,15 @@ export default class Fixtures extends LitElement {
       <details>
         <summary>Fixtures</summary>
 
-        <div class="input-container">
-          <hlm-size-input height=${this.height} width=${this.width} unit="px" @resize=${this.#setDimensions}>
-            Fixture Dimensions
-          </hlm-size-input>
+        <div class="fixture-container">
+          ${this.fixtures.map(this.#renderFixture.bind(this))}
+          <button data-id="create" @click=${this.#setFixtureDetails}>Add Fixture</button>
         </div>
       </details>
+
+      <dialog id="fixture">
+
+      </dialog>
     `;
   }
 
@@ -31,7 +68,8 @@ export default class Fixtures extends LitElement {
       margin: 0.5rem 0;
     }
 
-    .input-container {
+    .fixture-container {
+      display: flex;
       margin: 0 0.5rem;
     }
   `;

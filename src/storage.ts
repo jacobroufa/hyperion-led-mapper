@@ -1,8 +1,8 @@
-export type HLMStorageKey = `hlm-${string}`;
+import { HLMStorageKey } from "./types";
 
-export class HLMStorage {
+export default class HLMStorage {
     static isKey(keyish: string | HLMStorageKey): keyish is HLMStorageKey {
-        return (keyish as HLMStorageKey).startsWith('hlm-');
+        return (keyish as HLMStorageKey).trim().startsWith('hlm-');
     }
 
     static get keys(): Array<HLMStorageKey> {
@@ -18,6 +18,12 @@ export class HLMStorage {
         return keys;
     }
 
+    static remove(key: HLMStorageKey): void {
+        if (localStorage.getItem(key)) {
+            localStorage.removeItem(key);
+        }
+    }
+
     static replace(item: any, key: HLMStorageKey): void {
         localStorage.setItem(key, JSON.stringify(item));
     }
@@ -30,8 +36,6 @@ export class HLMStorage {
     static store(item: string, value: any, key: HLMStorageKey): void {
         let currentValue = JSON.parse(localStorage.getItem(key) ?? '{}');
         currentValue[item] = value;
-        localStorage.setItem(key, JSON.stringify(value));
+        localStorage.setItem(key, JSON.stringify(currentValue));
     }
 }
-
-export default HLMStorage;

@@ -1,18 +1,33 @@
 import { LitElement, css, html } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
+import { classMap } from 'lit-html/directives/class-map.js';
 
-import { HLMStorageKey, HLMStorage } from './storage';
+import HLMStorage from './storage';
+import { keyProxy } from './window';
+
+import type { HLMStorageKey } from './types';
 
 @customElement('hlm-maps')
 export default class Maps extends LitElement {
-  @property() key?: HLMStorageKey;
+  @property({ reflect: true, attribute: true }) key?: HLMStorageKey;
 
-  @state() keys: Array<HLMStorageKey> = [];
+  @property({ type: Array }) keys: Array<HLMStorageKey> = [];
 
   @query('#create') dialog?: HTMLDialogElement;
   @query('#name') input?: HTMLInputElement;
 
-  createKey(event: Event) {
+  constructor() {
+    super();
+    
+    this.keys = HLMStorage.keys;
+
+    if (this.keys.length === 1) {
+      this.key = this.keys[0];
+      keyProxy.hlm = this.key;
+    }
+  }
+
+  #createKey(event: Event) {
     event.preventDefault();
 
     const value: HLMStorageKey = `hlm-${this.input?.value.toLowerCase().replaceAll(' ', '_')}`;
@@ -22,44 +37,62 @@ export default class Maps extends LitElement {
 
     // create a base map
     HLMStorage.replace({
-        height: 480,
-        width: 640,
-        aspectMultiplier: 0.75,
-        aspectRatio: '4:3',
+      height: 480,
+      width: 640,
+      aspectMultiplier: 0.75,
+      aspectRatio: '4:3',
     }, value);
 
     this.dialog?.close();
   }
 
-  showModal() {
+  #setKey(event: MouseEvent) {
+    const text: string | HLMStorageKey = ((event.target as HTMLAnchorElement).textContent ?? '').trim();
+
+    if (HLMStorage.isKey(text)) {
+      this.key = text;
+      keyProxy.hlm = this.key;
+    }
+  }
+
+  #deleteKey(event: MouseEvent) {
+    const key: string | HLMStorageKey = (event.target as HTMLAnchorElement).dataset.key ?? '';
+    
+    if (HLMStorage.isKey(key) && window.confirm('Are you sure you want to delete this map?')) {
+      HLMStorage.remove(key);
+      this.keys = this.keys.filter(k => k !== key)
+    }
+  }
+
+  #showModal() {
     this.dialog?.showModal();
   }
 
-  setKey(event: MouseEvent) {
-    const text: string | HLMStorageKey = (event.target as HTMLAnchorElement).textContent ?? '';
-    if (HLMStorage.isKey(text)) {
-        this.key = text;
-    }
-  }
-
-  renderKeyItem(key: HLMStorageKey) {
+  #renderKeyItem(key: HLMStorageKey) {
     return html`
-      <li><a @click=${this.setKey}>${key}</a></li>
+      <li>
+        <a @click=${this.#setKey} class=${classMap({ active: key === this.key })}>
+          ${key}
+        </a>
+        <span> | </span>
+        <a @click=${this.#deleteKey} class="delete" data-key=${key}>
+          delete
+        </a>
+      </li>
     `;
   }
 
-  renderMap() {
-    const keys = HLMStorage.keys;
-    const createNew = html`<a @click=${this.showModal}>Create a new map</a>`;
+  #renderMap() {
+    const createNew = html`<a @click=${this.#showModal}>Create a new map</a>`;
 
-    if (!keys.length) {
-        return createNew;
+    if (!this.keys.length) {
+      return createNew;
     }
 
     return html`
-      <p>Select a map:</p>
+      <strong>Select a map:</strong>
       <ul>
-        ${keys.map(this.renderKeyItem)}
+        ${this.keys.map(this.#renderKeyItem.bind(this))}
         <li>${createNew}</li>
       </ul>
     `;
@@ -70,18 +103,50 @@ export default class Maps extends LitElement {
       <details>
         <summary>Current Map: ${this.key ?? 'No Map Loaded'}</summary>
 
-        ${this.renderMap()}
+        ${this.#renderMap()}
 
         <dialog id="create">
-            <label for="name">Map Name</label>
-            <input id="name" name="name" type="text" />
-            <button @click=${this.createKey}>Create</button>
+          <label for="name">Map Name</label>
+          <input id="name" name="name" type="text" />
+          <button @click=${this.#createKey}>Create</button>
         </dialog>
       </details>
     `;
   }
 
   static styles = css`
+    strong {
+      display: inline-block;
+      margin: 0.5rem 0;
+    }
+
+    ul {
+      margin: 0;
+    }
+
+    a {
+      color: darkblue;
+      display: inline-block;
+      padding: 0.25rem;
+    }
+
+    a:hover {
+      color: cornflowerblue;
+      cursor: pointer;
+    }
+
+    a.active {
+      background: #2edf3a;
+      border-radius: 0.25em;
+    }
+
+    a.delete {
+      color: darkred;
+    }
+
+    a.delete:hover {
+      color: orange;
+    }
   `;
 }
 

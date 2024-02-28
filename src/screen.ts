@@ -4,23 +4,40 @@ import { customElement, property, query, state } from 'lit/decorators.js';
 import './ratio-input.ts';
 import './size-input.ts';
 
-import type { AspectRatio } from './ratio-input.ts';
+import HLMStorage from './storage.ts';
 
-type LedLayoutKey = 'hmax' | 'hmin' | 'vmax' | 'vmin';
-type LedLayout = { [k in LedLayoutKey]: number };
+import type { AspectRatio, HLMStorageKey, LedLayout, LedLayoutKey } from './types.ts';
 
 @customElement('hlm-screen')
 export default class Screen extends LitElement {
-  @property({ type: Number }) height = 53;
-  @property({ type: Number }) width = 84.5;
-  @property({ type: Number }) aspectMultiplier = 0.75;
-  @property({ type: String }) aspectRatio: AspectRatio = '4:3';
+  @property({ type: String, attribute: 'active-map-key', reflect: true }) activeMapKey: HLMStorageKey = 'hlm-null';
+  @property({ type: Number }) height = 0;
+  @property({ type: Number }) width = 0;
+  @property({ type: Number }) aspectMultiplier = 0;
+  @property({ type: String }) aspectRatio: AspectRatio = '16:10';
 
   @state() _calculatedHeight = 0;
 
   @query('.screen') screenDiv?: HTMLDivElement;
 
-  firstUpdated() {
+  constructor() {
+    super();
+    this.#setLocalProps();
+  }
+
+  updated(changedProperties: Map<keyof Screen, Screen[keyof Screen]>) {
+    const newMapKey = changedProperties.get('activeMapKey');
+    if ((!newMapKey || newMapKey === this.activeMapKey) || !this.activeMapKey) return;
+
+    this.#setLocalProps();
+  }
+
+  #setLocalProps() {
+    if (!this.activeMapKey) return;
+    this.height = HLMStorage.retrieve('height', this.activeMapKey) ?? 0;
+    this.width = HLMStorage.retrieve('width', this.activeMapKey) ?? 0;
+    this.aspectMultiplier = HLMStorage.retrieve('aspectMultiplier', this.activeMapKey) ?? 0;
+    this.aspectRatio = HLMStorage.retrieve('aspectRatio', this.activeMapKey);
     this.#setScreenSize();
   }
 
@@ -46,6 +63,8 @@ export default class Screen extends LitElement {
   }
 
   #setScreenSize() {
+    if (!this.screenDiv) return;
+
     const h = this.aspectMultiplier * this.screenDiv!.offsetWidth;
     this._calculatedHeight = h;
   }
@@ -54,6 +73,11 @@ export default class Screen extends LitElement {
     const [width, height] = event.detail;
     this.height = height;
     this.width = width;
+
+    if (!this.activeMapKey) return;
+
+    HLMStorage.store('height', height, this.activeMapKey);
+    HLMStorage.store('width', width, this.activeMapKey);
   }
 
   #setAspectRatio(event: CustomEvent<[number, AspectRatio]>) {
@@ -61,6 +85,11 @@ export default class Screen extends LitElement {
     this.aspectMultiplier = multiplier;
     this.aspectRatio = ratio;
     this.#setScreenSize();
+
+    if (!this.activeMapKey) return;
+
+    HLMStorage.store('aspectMultiplier', multiplier, this.activeMapKey);
+    HLMStorage.store('aspectRatio', ratio, this.activeMapKey);
   }
 
   render() {
