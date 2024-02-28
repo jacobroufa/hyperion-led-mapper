@@ -1,15 +1,22 @@
-import { LitElement, css, html } from 'lit';
-import { customElement, property, query, state } from 'lit/decorators.js';
+import { css, html } from 'lit';
+import { customElement, query, state } from 'lit/decorators.js';
 
+import './size-input.ts';
+
+import HLMElement from './element';
 import HLMStorage from './storage';
 import { keyProxy } from './window';
 
-import type { Fixture, HLMStorageKey, LedLayout, LedLayoutKey } from './types';
+import type { Fixture, LedLayout, LedLayoutKey } from './types';
+
+/**
+ * TODO / Bugs:
+ * - adding multiple fixtures in a row doesn't work properly
+ * - fixture indexing is borked (maybe fixing this fixes #1?)
+ */
 
 @customElement('hlm-fixtures')
-export default class Fixtures extends LitElement {
-  @property({ type: String, attribute: 'active-map-key', reflect: true }) activeMapKey: HLMStorageKey = 'hlm-null';
-
+export default class Fixtures extends HLMElement {
   @state() fixtures: Array<Fixture> = [];
   @state() fixture?: Fixture;
   @state() fixtureIndex?: number;
@@ -97,9 +104,12 @@ export default class Fixtures extends LitElement {
 
   #removeFixture(event: MouseEvent) {
     const id = parseInt((event.target as HTMLButtonElement).dataset.id ?? '', 10);
+
     this.fixtures = this.fixtures.filter(fixture => fixture.id !== id);
+
     HLMStorage.store('fixtures', this.fixtures, this.activeMapKey);
-    this.dispatchEvent(new Event('hlm-fixture-update'));
+
+    this.emit('hlm-event-fixture-update');
   }
 
   #updateFixtureDimensions(event: CustomEvent<[number, number]>) {
@@ -123,13 +133,13 @@ export default class Fixtures extends LitElement {
 
   #setFixtureLed(event: MouseEvent) {
     const { offsetLeft, offsetTop, offsetWidth: width, offsetHeight: height } = this.fixtureCanvas!;
-    const hscan = parseFloat(((event.x - offsetLeft) / width).toFixed(4));
-    const vscan = parseFloat(((event.y - offsetTop) / height).toFixed(4));
+    const hscan = this._float((event.x - offsetLeft) / width);
+    const vscan = this._float((event.y - offsetTop) / height);
     let led: LedLayout = {
-      hmax: parseFloat((hscan + 0.005).toFixed(4)),
-      hmin: parseFloat((hscan - 0.005).toFixed(4)),
-      vmax: parseFloat((vscan + 0.005).toFixed(4)),
-      vmin: parseFloat((vscan - 0.005).toFixed(4))
+      hmax: this._float(hscan + 0.005),
+      hmin: this._float(hscan - 0.005),
+      vmax: this._float(vscan + 0.005),
+      vmin: this._float(vscan - 0.005)
     };
 
     (Object.keys(led) as Array<LedLayoutKey>).forEach(key => {
@@ -150,17 +160,21 @@ export default class Fixtures extends LitElement {
   }
 
   #updateFixture(close: boolean = true) {
+    const fixtures = [...this.fixtures];
+
     if (this.fixtures.length === this.fixtureIndex) {
-      this.fixtures.push(this.fixture!);
+      fixtures.push(this.fixture!);
     } else {
-      this.fixtures.splice(this.fixtureIndex!, 1, this.fixture!);
+      fixtures.splice(this.fixtureIndex!, 1, this.fixture!);
     }
+
+    this.fixtures = fixtures;
+
     this.requestUpdate();
 
-    HLMStorage.store('fixtures', this.fixtures, this.activeMapKey);
-    this.dispatchEvent(new Event('hlm-fixture-update', {
-        bubbles: true, composed: true
-    }));
+    HLMStorage.store('fixtures', fixtures, this.activeMapKey);
+
+    this.emit('hlm-event-fixture-update');
 
     if (close) {
       this.fixtureModal!.close();
@@ -209,8 +223,8 @@ export default class Fixtures extends LitElement {
           .height=${(this.fixture?.height ?? 0)}
           .width=${this.fixture?.width ?? 0}
           unit="in"
-          flexDirection="column"
-          @resize=${this.#updateFixtureDimensions}>
+          flex="column"
+          @hlm-event-resize=${this.#updateFixtureDimensions}>
           Dimensions
         </hlm-size-input>
 

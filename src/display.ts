@@ -1,17 +1,23 @@
-import { LitElement, css, html } from 'lit';
+import { css, html } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 
 import './ratio-input.ts';
 import './size-input.ts';
 
+import HLMElement from './element.ts';
 import HLMStorage from './storage.ts';
 
-import type { AspectRatio, Fixture, HLMStorageKey } from './types.ts';
+import type { AspectRatio, Fixture } from './types.ts';
 
-@customElement('hlm-screen')
-export default class Screen extends LitElement {
-  @property({ type: String, attribute: 'active-map-key', reflect: true }) activeMapKey: HLMStorageKey = 'hlm-null';
+/**
+ * TODO / Bugs:
+ * - when adding a fixture undefined _fixtureHeights throws an error in renderFixture
+ * - adding/updating/removing fixture doesn't re-render properly automatically
+ */
+
+@customElement('hlm-display')
+export default class Display extends HLMElement {
   @property({ type: Number, attribute: 'fixture-id', reflect: true }) fixtureId: number = -1;
 
   @property({ type: Number }) height = 0;
@@ -34,7 +40,7 @@ export default class Screen extends LitElement {
     this.#setLocalProps();
   }
 
-  updated(_changedProperties: Map<keyof Screen, Screen[keyof Screen]>): void {
+  updated(_changedProperties: Map<keyof Display, Display[keyof Display]>): void {
     const key = _changedProperties.get('activeMapKey');
     if (_changedProperties.has('activeMapKey') && key !== this.activeMapKey) {
       this.#setLocalProps();
@@ -46,7 +52,6 @@ export default class Screen extends LitElement {
     }
 
     if (_changedProperties.has('fixtures')) {
-      console.log('updating fixtures');
       this.#setFixtures();
     }
   }
@@ -75,8 +80,8 @@ export default class Screen extends LitElement {
     if (!this._fixture) return;
 
     const { offsetLeft, offsetTop, offsetWidth: width, offsetHeight: height } = this.screenDiv!;
-    const hscan = parseFloat(((event.x - offsetLeft) / width).toFixed(4));
-    const vscan = parseFloat(((event.y - offsetTop) / height).toFixed(4));
+    const hscan = this._float((event.x - offsetLeft) / width);
+    const vscan = this._float((event.y - offsetTop) / height);
     const fixWidth = (this._fixture?.width ?? 0) / this.width;
     const fixHeight = (this._fixture?.height ?? 0) / this.height;
     let left = hscan - (fixWidth / 2);
@@ -87,17 +92,13 @@ export default class Screen extends LitElement {
     if (left + fixWidth > 1) left = (1 - fixWidth);
     if (top + fixHeight > 1) top = (1 - fixHeight);
 
-    this._fixture!.coords = [parseFloat(top.toFixed(4)), parseFloat(left.toFixed(4))];
+    this._fixture!.coords = [this._float(top), this._float(left)];
 
     const fixId = this.fixtures.findIndex(f => f.id === this.fixtureId);
 
-    this.fixtures = this.fixtures.slice().splice(fixId, 1, this._fixture);
+    this.fixtures.splice(fixId, 1, this._fixture);
 
     HLMStorage.store('fixtures', this.fixtures, this.activeMapKey);
-
-    this.dispatchEvent(new Event('hlm-fixture-update', {
-        bubbles: true, composed: true
-    }));
   }
 
   #setScreenSize() {
@@ -111,7 +112,6 @@ export default class Screen extends LitElement {
 
   #setFixtureHeights() {
     this.fixtures.forEach(fixture => {
-      console.log(fixture);
       const relativeFixtureHeight = (fixture?.height ?? 0) / this.height;
       const displayHeight = parseInt((relativeFixtureHeight * this._calculatedHeight).toFixed(), 10);
       const displayTop = this._calculatedHeight * fixture.coords[0];
@@ -181,10 +181,17 @@ export default class Screen extends LitElement {
         </summary>
 
         <div class="input-container">
-          <hlm-size-input height=${this.height} width=${this.width} unit="in" @resize=${this.#setDimensions}>
+          <hlm-size-input
+            height=${this.height}
+            width=${this.width}
+            unit="in"
+            @hlm-event-resize=${this.#setDimensions}>
             Physical Dimensions
           </hlm-size-input>
-          <hlm-ratio-input aspectMultiplier=${this.aspectMultiplier} aspectRatio=${this.aspectRatio} @ratiochange=${this.#setAspectRatio}>
+          <hlm-ratio-input
+            aspect-multiplier=${this.aspectMultiplier}
+            aspect-ratio=${this.aspectRatio}
+            @hlm-event-ratio-change=${this.#setAspectRatio}>
           </hlm-ratio-input>
         </div>
       </details>
@@ -248,6 +255,6 @@ export default class Screen extends LitElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'hlm-screen': Screen
+    'hlm-display': Display
   }
 }

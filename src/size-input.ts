@@ -1,20 +1,17 @@
-import { LitElement, css, html } from 'lit';
+import { css, html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 
+import HLMElement from './element';
+
 @customElement('hlm-size-input')
-export default class SizeInput extends LitElement {
+export default class SizeInput extends HLMElement {
   @property({ type: Number }) height: number = 0;
   @property({ type: Number }) width: number = 0;
   @property({ type: String }) unit: string = 'px';
-  @property({ type: String }) flexDirection: 'row' | 'column' = 'row';
+  @property({ type: String, attribute: 'flex', reflect: true }) flexDirection: 'row' | 'column' = 'row';
 
   #emitChange() {
-    const event = new CustomEvent<[number, number]>('resize', {
-        detail: [this.width ?? 0, this.height ?? 0],
-        bubbles: true,
-        composed: true
-    });
-    this.dispatchEvent(event);
+    this.emit('hlm-event-resize', [this.width ?? 0, this.height ?? 0]);
   }
 
   #onWidthChange(event: Event) {

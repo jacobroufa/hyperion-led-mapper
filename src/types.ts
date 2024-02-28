@@ -1,4 +1,5 @@
-export type HLMStorageKey = `hlm-${string}`;
+export type HLMKey = `hlm-${string}`;
+export type HLMEventKey = `hlm-event-${string}`;
 
 export type AspectRatio = '1:1' | '4:3' | '16:9' | '16:10';
 
@@ -15,6 +16,6 @@ export type Fixture = {
 };
 
 export type GlobalKeys = {
-    hlm?: HLMStorageKey;
+    hlm?: HLMKey;
     fixture?: number;
 };

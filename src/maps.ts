@@ -1,16 +1,15 @@
-import { LitElement, css, html } from 'lit';
+import { css, html } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 
+import { defaultKey } from './default';
+import HLMElement from './element';
 import HLMStorage from './storage';
-import { keyProxy } from './window';
 
-import type { HLMStorageKey } from './types';
+import type { HLMKey } from './types';
 
 @customElement('hlm-maps')
-export default class Maps extends LitElement {
-  @property({ reflect: true, attribute: true }) key?: HLMStorageKey;
-
-  @property({ type: Array }) keys: Array<HLMStorageKey> = [];
+export default class Maps extends HLMElement {
+  @property({ type: Array }) keys: Array<HLMKey> = [];
 
   @query('details') mapList?: HTMLDetailsElement;
   @query('#create') dialog?: HTMLDialogElement;
@@ -22,26 +21,29 @@ export default class Maps extends LitElement {
     this.keys = HLMStorage.keys;
 
     if (this.keys.length === 1) {
-      this.key = this.keys[0];
-      keyProxy.hlm = this.key;
+      this.#updateKey(this.keys[0]);
     }
   }
 
   updated() {
-    if (!this.key) {
+    if (!this.activeMapKey) {
       this.mapList!.open = true;
     }
+  }
+
+  #updateKey(key: HLMKey) {
+    this.activeMapKey = key;
+    this.emit('hlm-event-map-change', key);
   }
 
   #createKey(event: Event) {
     event.preventDefault();
 
-    const value: HLMStorageKey = `hlm-${this.input?.value.toLowerCase().replaceAll(' ', '_')}`;
+    const value: HLMKey = `hlm-${this.input?.value.toLowerCase().replaceAll(' ', '_')}`;
 
-    this.key = value;
     this.keys.push(value);
 
-    keyProxy.hlm = value;
+    this.#updateKey(value);
 
     this.mapList!.removeAttribute('open');
 
@@ -57,24 +59,23 @@ export default class Maps extends LitElement {
   }
 
   #setKey(event: MouseEvent) {
-    const key: string | HLMStorageKey = ((event.target as HTMLAnchorElement).dataset.key ?? '').trim();
+    const key: string | HLMKey = ((event.target as HTMLAnchorElement).dataset.key ?? '').trim();
 
     if (HLMStorage.isKey(key)) {
-      this.key = key;
-      keyProxy.hlm = this.key;
+      this.#updateKey(key);
+
       this.mapList!.removeAttribute('open');
     }
   }
 
   #deleteKey(event: MouseEvent) {
-    const key: string | HLMStorageKey = ((event.target as HTMLAnchorElement).dataset.key ?? '').trim();
+    const key: string | HLMKey = ((event.target as HTMLAnchorElement).dataset.key ?? '').trim();
     
     if (HLMStorage.isKey(key) && window.confirm('Are you sure you want to delete this map?')) {
       HLMStorage.remove(key);
       this.keys = this.keys.filter(k => k !== key)
-      if (key === this.key) {
-        this.key = undefined;
-        keyProxy.hlm = undefined;
+      if (key === this.activeMapKey) {
+        this.#updateKey(defaultKey);
       }
     }
   }
@@ -83,7 +84,7 @@ export default class Maps extends LitElement {
     this.dialog?.showModal();
   }
 
-  #renderKeyItem(key: HLMStorageKey) {
+  #renderKeyItem(key: HLMKey) {
     return html`
       <li class="map-row">
         <strong>${key}</strong>
@@ -100,7 +101,7 @@ export default class Maps extends LitElement {
   render() {
     return html`
       <details>
-        <summary>Current Map: ${this.key ?? 'No Map Loaded'}</summary>
+        <summary>Current Map: ${this.activeMapKey ?? 'No Map Loaded'}</summary>
 
         <ul class="map-container">
           ${this.keys.map(this.#renderKeyItem.bind(this))}
