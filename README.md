@@ -6,10 +6,6 @@ This project is intended to be used as a companion software to [Hyperion](https:
 
 The application is capable of creating and working with multiple maps. These are held in LocalStorage in your browser. If only one map exists, it will be loaded by default when the application loads. If there are multiple maps, choose "Set Active" to load one. Once a map has a screen and one or more fixtures configured, choose "Export" to get a Hyperion LED Layout.
 
-TODO:
-
-* Finish Export functionality
-
 ## Fixtures
 
 Fixture parameters will require you provide a name and physical outer dimensions as well as LED placement within the fixture and a shape to conform to. LED Offset determines starting position and can be positive or negative up to the number of LEDs in the layout. LED Position finely adjusts the placement of your LEDs; use this to tune the location of your lights based upon your physical fixture.

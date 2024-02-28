@@ -5,7 +5,7 @@ import { defaultKey } from './default';
 import HLMElement from './element';
 import HLMStorage from './storage';
 
-import type { HLMKey } from './types';
+import type { Fixture, HLMKey, LedLayout } from './types';
 
 @customElement('hlm-maps')
 export default class Maps extends HLMElement {
@@ -14,6 +14,8 @@ export default class Maps extends HLMElement {
   @query('details') mapList?: HTMLDetailsElement;
   @query('#create') dialog?: HTMLDialogElement;
   @query('#name') input?: HTMLInputElement;
+  @query('#export') exportDialog?: HTMLDialogElement;
+  @query('#export-config') exportConfig?: HTMLTextAreaElement;
 
   constructor() {
     super();
@@ -84,9 +86,42 @@ export default class Maps extends HLMElement {
   }
 
   #exportMap(event: MouseEvent) {
-    const key: string | HLMKey = ((event.target as HTMLAnchorElement).dataset.key ?? '').trim();
-    alert(key);
-    // TODO: Create map LEDLayout[] based upon fixtures and LEDs
+    const key = ((event.target as HTMLAnchorElement).dataset.key ?? '').trim() as HLMKey;
+    const width = HLMStorage.retrieve('width', key);
+    const height = HLMStorage.retrieve('height', key);
+    const fixtures = HLMStorage.retrieve<Fixture[]>('fixtures', key)
+      .sort((a, b) => (a.id <= b.id) ? -1 : 1)
+      .map(fixture => {
+        const fixLeds = [...fixture.leds || []];
+        const offsetLeds = fixLeds?.splice(fixture.ledOffset as number);
+        const leds = [...offsetLeds, ...fixLeds];
+
+        return {
+          width: fixture.width,
+          height: fixture.height,
+          coords: fixture.coords,
+          leds
+        };
+      }).map(fix => {
+        const xScale = fix.width / width;
+        const yScale = fix.height / height;
+        const [xOrigin, yOrigin] = fix.coords;
+
+        return fix.leds?.map(([xLed, yLed]) => {
+          const h = (xLed * xScale) + xOrigin;
+          const v = (yLed * yScale) + yOrigin;
+
+          return {
+            hmin: this._float(h - 0.01),
+            hmax: this._float(h + 0.01),
+            vmin: this._float(v - 0.01),
+            vmax: this._float(v + 0.01)
+          };
+        }) as LedLayout[];
+      }).reduce((prev, leds) => ([ ...prev as LedLayout[], ...leds ]), []);
+
+    this.exportConfig!.value = JSON.stringify(fixtures, null, 2);
+    this.exportDialog!.show();
   }
 
   #showModal() {
@@ -126,6 +161,13 @@ export default class Maps extends HLMElement {
         <input id="name" name="name" type="text" />
         <button @click=${this.#createKey}>Create</button>
       </dialog>
+
+      <dialog id="export">
+        <strong>Hyperion LED Configuration</strong>
+        <p>Open your Hyperion control panel and navigate to LED Instances > LED Output on the left sidebar. Switch to the LED Layout tab and open the bottom accordion panel: Generated/Current LED Configuration. Paste the following configuration into the text field and choose Update Preview to view and Save Layout to load it into your Hyperion instance.</p>
+        <textarea id="export-config" name="export-config" width="100%"></textarea>
+        <button @click=${() => this.exportDialog!.close()}>Close</button>
+      </dialog>
     `;
   }
 
@@ -151,6 +193,28 @@ export default class Maps extends HLMElement {
 
     button.export {
       margin-left: 5rem
+    }
+
+    #export[open] {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      padding: 0.5rem;
+      margin: 2rem;
+      z-index: 100;
+    }
+
+    #export * {
+      display: inline-block;
+      margin: 0;
+    }
+
+    #export textarea {
+      height: 25rem;
+    }
+
+    #export button {
+      align-self: flex-end;
     }
   `;
 }
