@@ -1,4 +1,4 @@
-import { LitElement, css, html, unsafeCSS } from 'lit';
+import { LitElement, css, html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 
 @customElement('hlm-size-input')
@@ -47,7 +47,7 @@ export default class SizeInput extends LitElement {
 
         <style>
           .input-container::after {
-            content: ${unsafeCSS(this.unit)};
+            content: '${this.unit.trim()}';
           }
         </style>
     `;

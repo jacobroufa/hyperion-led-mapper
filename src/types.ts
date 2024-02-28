@@ -6,9 +6,10 @@ export type LedLayoutKey = 'hmax' | 'hmin' | 'vmax' | 'vmin';
 export type LedLayout = { [k in LedLayoutKey]: number };
 
 export type Fixture = {
-  id: string;
+  id: number;
   name: string;
   height: number;
   width: number;
-  leds: LedLayout;
+  coords: [number, number];
+  leds?: LedLayout[];
 };

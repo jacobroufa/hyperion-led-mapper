@@ -13,6 +13,7 @@ export default class Maps extends LitElement {
 
   @property({ type: Array }) keys: Array<HLMStorageKey> = [];
 
+  @query('details') mapList?: HTMLDetailsElement;
   @query('#create') dialog?: HTMLDialogElement;
   @query('#name') input?: HTMLInputElement;
 
@@ -27,6 +28,12 @@ export default class Maps extends LitElement {
     }
   }
 
+  updated() {
+    if (!this.key) {
+      this.mapList!.open = true;
+    }
+  }
+
   #createKey(event: Event) {
     event.preventDefault();
 
@@ -35,32 +42,39 @@ export default class Maps extends LitElement {
     this.key = value;
     this.keys.push(value);
 
+    keyProxy.hlm = value;
+
+    this.mapList!.removeAttribute('open');
+
     // create a base map
     HLMStorage.replace({
-      height: 480,
-      width: 640,
-      aspectMultiplier: 0.75,
-      aspectRatio: '4:3',
+      height: 50,
+      width: 80,
+      aspectMultiplier: 0.625,
+      aspectRatio: '16:10',
     }, value);
 
     this.dialog?.close();
   }
 
   #setKey(event: MouseEvent) {
-    const text: string | HLMStorageKey = ((event.target as HTMLAnchorElement).textContent ?? '').trim();
+    const key: string | HLMStorageKey = ((event.target as HTMLAnchorElement).dataset.key ?? '').trim();
 
-    if (HLMStorage.isKey(text)) {
-      this.key = text;
+    if (HLMStorage.isKey(key)) {
+      this.key = key;
       keyProxy.hlm = this.key;
+      this.mapList!.removeAttribute('open');
     }
   }
 
   #deleteKey(event: MouseEvent) {
-    const key: string | HLMStorageKey = (event.target as HTMLAnchorElement).dataset.key ?? '';
+    const key: string | HLMStorageKey = ((event.target as HTMLAnchorElement).dataset.key ?? '').trim();
     
     if (HLMStorage.isKey(key) && window.confirm('Are you sure you want to delete this map?')) {
       HLMStorage.remove(key);
       this.keys = this.keys.filter(k => k !== key)
+      this.key = undefined;
+      keyProxy.hlm = undefined;
     }
   }
 
@@ -70,31 +84,15 @@ export default class Maps extends LitElement {
 
   #renderKeyItem(key: HLMStorageKey) {
     return html`
-      <li>
-        <a @click=${this.#setKey} class=${classMap({ active: key === this.key })}>
-          ${key}
-        </a>
-        <span> | </span>
-        <a @click=${this.#deleteKey} class="delete" data-key=${key}>
-          delete
-        </a>
+      <li class="map-row">
+        <strong>${key}</strong>
+        <button @click=${this.#setKey} data-key=${key}>
+          Set Active
+        </button>
+        <button @click=${this.#deleteKey} class="delete" data-key=${key}>
+          Delete
+        </button>
       </li>
-    `;
-  }
-
-  #renderMap() {
-    const createNew = html`<a @click=${this.#showModal}>Create a new map</a>`;
-
-    if (!this.keys.length) {
-      return createNew;
-    }
-
-    return html`
-      <strong>Select a map:</strong>
-      <ul>
-        ${this.keys.map(this.#renderKeyItem.bind(this))}
-        <li>${createNew}</li>
-      </ul>
     `;
   }
 
@@ -103,49 +101,38 @@ export default class Maps extends LitElement {
       <details>
         <summary>Current Map: ${this.key ?? 'No Map Loaded'}</summary>
 
-        ${this.#renderMap()}
-
-        <dialog id="create">
-          <label for="name">Map Name</label>
-          <input id="name" name="name" type="text" />
-          <button @click=${this.#createKey}>Create</button>
-        </dialog>
+        <ul class="map-container">
+          ${this.keys.map(this.#renderKeyItem.bind(this))}
+          <li><button @click=${this.#showModal}>Add Map</button></li>
+        </ul>
       </details>
+
+      <dialog id="create">
+        <label for="name">Map Name</label>
+        <input id="name" name="name" type="text" />
+        <button @click=${this.#createKey}>Create</button>
+      </dialog>
     `;
   }
 
   static styles = css`
+    .map-container {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin: 0.5rem;
+      list-style-type: none;
+      padding: 0;
+      align-items: flex-start;
+    }
+
+    .map-row {
+      display: flex;
+      gap: 0.5rem;
+    }
+
     strong {
-      display: inline-block;
-      margin: 0.5rem 0;
-    }
-
-    ul {
-      margin: 0;
-    }
-
-    a {
-      color: darkblue;
-      display: inline-block;
-      padding: 0.25rem;
-    }
-
-    a:hover {
-      color: cornflowerblue;
-      cursor: pointer;
-    }
-
-    a.active {
-      background: #2edf3a;
-      border-radius: 0.25em;
-    }
-
-    a.delete {
-      color: darkred;
-    }
-
-    a.delete:hover {
-      color: orange;
+      min-width: 10vw;
     }
   `;
 }

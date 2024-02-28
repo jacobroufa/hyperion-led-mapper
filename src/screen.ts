@@ -25,11 +25,11 @@ export default class Screen extends LitElement {
     this.#setLocalProps();
   }
 
-  updated(changedProperties: Map<keyof Screen, Screen[keyof Screen]>) {
-    const newMapKey = changedProperties.get('activeMapKey');
-    if ((!newMapKey || newMapKey === this.activeMapKey) || !this.activeMapKey) return;
-
-    this.#setLocalProps();
+  updated(_changedProperties: Map<keyof Screen, Screen[keyof Screen]>): void {
+    const key = _changedProperties.get('activeMapKey');
+    if (key !== this.activeMapKey) {
+      this.#setLocalProps();
+    }
   }
 
   #setLocalProps() {
@@ -93,13 +93,17 @@ export default class Screen extends LitElement {
   }
 
   render() {
+    if (this.activeMapKey === 'hlm-null') {
+        return;
+    }
+
     return html`
       <details>
         <summary>
           <div>
-            <span>Screen Size</span>
-            <span>${this.aspectRatio}</span>
+            <span>Screen Size:</span>
             <span>${this.width}" x ${this.height}"</span>
+            <span>(${this.aspectRatio})</span>
           </div>
         </summary>
 
@@ -126,7 +130,7 @@ export default class Screen extends LitElement {
 
     summary > div {
       display: inline-flex;
-      gap: 1rem;
+      gap: 0.5rem;
     }
 
     .input-container {
