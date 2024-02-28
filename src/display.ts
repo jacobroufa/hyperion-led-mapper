@@ -7,14 +7,9 @@ import './size-input.ts';
 
 import HLMElement from './element.ts';
 import HLMStorage from './storage.ts';
+import watch from './watch.ts';
 
-import type { AspectRatio, Fixture } from './types.ts';
-
-/**
- * TODO / Bugs:
- * - when adding a fixture undefined _fixtureHeights throws an error in renderFixture
- * - adding/updating/removing fixture doesn't re-render properly automatically
- */
+import type { AspectRatio, Fixture, HLMCanvasClickEvent } from './types.ts';
 
 @customElement('hlm-display')
 export default class Display extends HLMElement {
@@ -28,35 +23,21 @@ export default class Display extends HLMElement {
 
   /* height of the displayed "screen" */
   @state() _calculatedHeight = 0;
+  /* width of the displayed "screen" */
+  @state() _calculatedWidth = 0;
   /* height of the fixtures based upon _calculatedHeight */
   @state() _fixtureHeights: { [key: number]: [number, number] } = {};
   /* active fixture having placement adjusted */
   @state() _fixture?: Fixture;
 
-  @query('.screen') screenDiv?: HTMLDivElement;
+  @query('hlm-canvas') screenDiv?: HTMLDivElement;
 
   constructor() {
     super();
-    this.#setLocalProps();
   }
 
-  updated(_changedProperties: Map<keyof Display, Display[keyof Display]>): void {
-    const key = _changedProperties.get('activeMapKey');
-    if (_changedProperties.has('activeMapKey') && key !== this.activeMapKey) {
-      this.#setLocalProps();
-    }
-
-    const fixtureId = _changedProperties.get('fixtureId');
-    if (_changedProperties.has('fixtureId') && fixtureId !== this.fixtureId) {
-      this._fixture = this.fixtures.find(f => f.id === this.fixtureId);
-    }
-
-    if (_changedProperties.has('fixtures')) {
-      this.#setFixtures();
-    }
-  }
-
-  #setLocalProps() {
+  @watch('activeMapKey', { waitUntilFirstUpdate: true })
+  setLocalProps() {
     if (!this.activeMapKey) return;
 
     this.height = HLMStorage.retrieve('height', this.activeMapKey) ?? 0;
@@ -68,7 +49,11 @@ export default class Display extends HLMElement {
     this.#setScreenSize();
   }
 
-  #setFixtures() {
+  @watch(['fixtureId', 'fixtures'])
+  setActiveFixture() {
+    // TODO: hack.. fix this
+    this.fixtures = HLMStorage.retrieve<Fixture[]>('fixtures', this.activeMapKey) ?? [];
+
     if (this.fixtureId > -1) {
       this._fixture = this.fixtures.find(f => f.id === this.fixtureId);
     }
@@ -76,12 +61,10 @@ export default class Display extends HLMElement {
     this.#setFixtureHeights();
   }
 
-  #mouseClick(event: MouseEvent) {
+  #mouseClick(event: CustomEvent<HLMCanvasClickEvent>) {
     if (!this._fixture) return;
 
-    const { offsetLeft, offsetTop, offsetWidth: width, offsetHeight: height } = this.screenDiv!;
-    const hscan = this._float((event.x - offsetLeft) / width);
-    const vscan = this._float((event.y - offsetTop) / height);
+    const [vscan, hscan] = event.detail
     const fixWidth = (this._fixture?.width ?? 0) / this.width;
     const fixHeight = (this._fixture?.height ?? 0) / this.height;
     let left = hscan - (fixWidth / 2);
@@ -92,20 +75,29 @@ export default class Display extends HLMElement {
     if (left + fixWidth > 1) left = (1 - fixWidth);
     if (top + fixHeight > 1) top = (1 - fixHeight);
 
-    this._fixture!.coords = [this._float(top), this._float(left)];
+    this._fixture = {
+      ...this._fixture,
+      coords: [this._float(top), this._float(left)]
+    }
 
-    const fixId = this.fixtures.findIndex(f => f.id === this.fixtureId);
+    const fixtureArrayId = this.fixtures.findIndex(f => f.id === this.fixtureId);
 
-    this.fixtures.splice(fixId, 1, this._fixture);
+    this.fixtures = this.fixtures.map((fixture, id) => {
+      if (fixtureArrayId === id) return this._fixture;
+      return fixture;
+    }) as Fixture[];
 
     HLMStorage.store('fixtures', this.fixtures, this.activeMapKey);
   }
 
-  #setScreenSize() {
+  async #setScreenSize() {
+    await this.updateComplete;
+
     if (!this.screenDiv) return;
 
     const h = this.aspectMultiplier * this.screenDiv!.offsetWidth;
     this._calculatedHeight = h;
+    this._calculatedWidth = this.screenDiv!.offsetWidth;
 
     this.#setFixtureHeights();
   }
@@ -145,7 +137,7 @@ export default class Display extends HLMElement {
   }
 
   renderFixture(fixture: Fixture) {
-    if (!fixture) return;
+    if (!fixture || !this.screenDiv) return;
 
     const { offsetWidth: width } = this.screenDiv!;
     const relativeFixtureWidth = (fixture?.width ?? 0) / this.width;
@@ -198,15 +190,12 @@ export default class Display extends HLMElement {
 
       <hr />
 
-      <div class="screen" @click=${this.#mouseClick}>
+      <hlm-canvas
+        .height=${this._calculatedHeight}
+        .width=${this.calculatedWidth}
+        @hlm-event-canvas-click=${this.#mouseClick}>
         ${this.fixtures.map(this.renderFixture.bind(this))}
-      </div>
-
-      <style>
-        .screen {
-          height: ${this._calculatedHeight}px;
-        }
-      </style>
+      </hlm-canvas>
     `;
   }
 
@@ -231,13 +220,7 @@ export default class Display extends HLMElement {
       flex: 0 1 auto;
     }
 
-    .screen {
-      background: #ddd8de;
-      position: relative;
-      width: 100%;
-    }
-
-    .screen .fixture {
+    hlm-canvas .fixture {
       background: #cad7d2;
       box-shadow: inset 0 0 0 1px var(--dark-color);
       display: flex;
@@ -247,7 +230,7 @@ export default class Display extends HLMElement {
       position: absolute;
     }
 
-    .screen .fixture.active {
+    hlm-canvas .fixture.active {
       box-shadow: inset 0 0 3px 1px var(--dark-color);
     }
   `;

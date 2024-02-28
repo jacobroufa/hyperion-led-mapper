@@ -29,6 +29,9 @@ export default class Maps extends HLMElement {
     if (!this.activeMapKey) {
       this.mapList!.open = true;
     }
+    if (this.keys.length === 1) {
+      this.#updateKey(this.keys[0]);
+    }
   }
 
   #updateKey(key: HLMKey) {

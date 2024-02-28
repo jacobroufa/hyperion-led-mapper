@@ -3,49 +3,34 @@ import { customElement, query, state } from 'lit/decorators.js';
 
 import './size-input.ts';
 
+import HLMCanvas from './canvas.ts';
 import HLMElement from './element';
 import HLMStorage from './storage';
-import { keyProxy } from './window';
+import watch from './watch.ts';
 
-import type { Fixture, LedLayout, LedLayoutKey } from './types';
-
-/**
- * TODO / Bugs:
- * - adding multiple fixtures in a row doesn't work properly
- * - fixture indexing is borked (maybe fixing this fixes #1?)
- */
+import type { Fixture, HLMCanvasClickEvent } from './types';
 
 @customElement('hlm-fixtures')
 export default class Fixtures extends HLMElement {
   @state() fixtures: Array<Fixture> = [];
   @state() fixture?: Fixture;
-  @state() fixtureIndex?: number;
-  @state() _fixturePlacementIndex?: number;
+  @state() fixtureIndex: number = -1;
+  @state() fixturePlacementIndex: number = -1;
   @state() _calculatedHeight: number = 0;
+  @state() _calculatedWidth: number = 0;
 
   @query('details') fixtureList?: HTMLDetailsElement;
   @query('#fixture') fixtureModal?: HTMLDialogElement;
   @query('#name') fixtureName?: HTMLInputElement;
-  @query('.fixture-canvas .inner') fixtureCanvas?: HTMLDivElement;
+  @query('hlm-canvas') fixtureCanvas?: HLMCanvas;
 
   constructor() {
     super();
-    this.#setLocalProps();
+    this.setLocalProps();
   }
 
-  updated(_changedProperties: Map<keyof Fixtures, Fixtures[keyof Fixtures]>): void {
-    const key = _changedProperties.get('activeMapKey');
-    if (_changedProperties.has('activeMapKey') && key !== this.activeMapKey) {
-      this.#setLocalProps();
-    }
-
-    const fixtures = _changedProperties.get('fixtures');
-    if (_changedProperties.has('fixtures') && fixtures !== this.fixtures) {
-      this.#setFixtures();
-    }
-  }
-
-  #setLocalProps() {
+  @watch('activeMapKey')
+  setLocalProps() {
     if (!this.activeMapKey) return;
 
     this.fixtures = HLMStorage.retrieve('fixtures', this.activeMapKey) ?? [];
@@ -55,32 +40,26 @@ export default class Fixtures extends HLMElement {
     }
   }
 
-  #setFixtures() {
-    if (this.fixture) {
-      const fixId = this.fixtures.findIndex(f => f.id === this.fixture?.id);
-      // update currently set fixture index
-      this.fixtureIndex = fixId;
-      // update currently set fixture
-      this.fixture = this.fixtures[fixId];
-    }
-  }
-
   #setFixtureDetails(event: MouseEvent) {
+    // ensure we have the latest fixtures so we don't break layout
+    this.fixtures = HLMStorage.retrieve('fixtures', this.activeMapKey) ?? [];
+
     const id = (event.target as HTMLButtonElement).dataset.id;
-    const numId = parseInt(id ?? '', 10);
+    const maxFixtureId = this.fixtures.map(f => f.id).reduce((bigId, currentId) => (bigId > currentId) ? bigId : currentId, -1);
 
     if (id === 'create') {
-      this.fixtureIndex = this.fixtures.length;
+      this.fixtureIndex = maxFixtureId + 1;
       this.fixture = {
-        id: this.fixtures.length,
+        id: this.fixtureIndex,
         name: '',
         height: 0,
         width: 0,
         coords: [0, 0]
       };
     } else {
-      this.fixtureIndex = this.fixtures.findIndex(f => f.id === numId);
-      this.fixture = this.fixtures[this.fixtureIndex];
+      const numId = parseInt(id ?? '', 10);
+      this.fixtureIndex = numId;
+      this.fixture = this.fixtures.find(f => f.id === numId);
     }
 
     this.fixtureModal!.showModal();
@@ -88,28 +67,31 @@ export default class Fixtures extends HLMElement {
     this.#setCanvasSize();
   }
 
-  #setPlacement(event: MouseEvent) {
+  #setFixtureToPlace(event: MouseEvent) {
     const id = parseInt((event.target as HTMLButtonElement).dataset.id ?? '', 10);
+    const placementId = this.fixturePlacementIndex === id ? -1 : id;
 
-    if (this._fixturePlacementIndex === id) {
-      this._fixturePlacementIndex = undefined;
-      this.fixture = undefined;
-    } else {
-      this._fixturePlacementIndex = this.fixtures.findIndex(f => f.id === id);
-      this.fixture = this.fixtures[this._fixturePlacementIndex];
-    }
+    this.fixture = (placementId === -1) ? undefined : this.fixtures.find(f => f.id === id);
 
-    keyProxy.fixture = this._fixturePlacementIndex ?? -1;
+    this.#updatePlacementIndex(placementId);
+  }
+
+  #updatePlacementIndex(index: number) {
+    this.fixturePlacementIndex = index;
+    this.emit<{ index: number }>('hlm-event-fixture-placement', { index })
   }
 
   #removeFixture(event: MouseEvent) {
+    // ensure we have the latest fixtures so we don't break layout
+    this.fixtures = HLMStorage.retrieve('fixtures', this.activeMapKey) ?? [];
+
     const id = parseInt((event.target as HTMLButtonElement).dataset.id ?? '', 10);
 
     this.fixtures = this.fixtures.filter(fixture => fixture.id !== id);
 
     HLMStorage.store('fixtures', this.fixtures, this.activeMapKey);
 
-    this.emit('hlm-event-fixture-update');
+    this.emit<never>('hlm-event-fixture-update');
   }
 
   #updateFixtureDimensions(event: CustomEvent<[number, number]>) {
@@ -121,7 +103,7 @@ export default class Fixtures extends HLMElement {
     this.fixture = fix;
 
     this.#setCanvasSize();
-    this.#updateFixture(false);
+    this.#updateFixture();
   }
 
   #setCanvasSize() {
@@ -129,25 +111,32 @@ export default class Fixtures extends HLMElement {
 
     const multiplier = this.fixture!.height / this.fixture!.width;
     this._calculatedHeight = multiplier * this.fixtureCanvas!.offsetWidth;
+    this._calculatedWidth = this.fixtureCanvas!.offsetWidth;
   }
 
-  #setFixtureLed(event: MouseEvent) {
-    const { offsetLeft, offsetTop, offsetWidth: width, offsetHeight: height } = this.fixtureCanvas!;
-    const hscan = this._float((event.x - offsetLeft) / width);
-    const vscan = this._float((event.y - offsetTop) / height);
-    let led: LedLayout = {
-      hmax: this._float(hscan + 0.005),
-      hmin: this._float(hscan - 0.005),
-      vmax: this._float(vscan + 0.005),
-      vmin: this._float(vscan - 0.005)
-    };
+  #setFixtureLed(event: CustomEvent<HLMCanvasClickEvent>) {
+    // const { offsetLeft, offsetTop, offsetWidth: width, offsetHeight: height } = this.fixtureCanvas!;
+    // console.log(this.fixtureCanvas, offsetLeft, width, offsetTop, height)
+    // // const left = width - offsetLeft;
+    // // const top = height - offsetTop;
+    // const hscan = this._float(event.x / width);
+    // const vscan = this._float(event.y / height);
 
-    (Object.keys(led) as Array<LedLayoutKey>).forEach(key => {
-      if (led[key] < 0) led[key] = 0;
-      if (led[key] > 1) led[key] = 1;
-    });
+    // console.log(event.x, event.y, hscan, vscan, width, height)
 
-    console.log(led);
+    // let led: LedLayout = {
+    //   hmax: this._float(hscan + 0.005),
+    //   hmin: this._float(hscan - 0.005),
+    //   vmax: this._float(vscan + 0.005),
+    //   vmin: this._float(vscan - 0.005)
+    // };
+
+    // (Object.keys(led) as Array<LedLayoutKey>).forEach(key => {
+    //   if (led[key] < 0) led[key] = 0;
+    //   if (led[key] > 1) led[key] = 1;
+    // });
+
+    console.log(this.tagName, 'fixture led values', event.detail);
   }
 
   #updateFixtureName() {
@@ -159,13 +148,18 @@ export default class Fixtures extends HLMElement {
     this.#updateFixture();
   }
 
-  #updateFixture(close: boolean = true) {
+  #updateFixture() {
     const fixtures = [...this.fixtures];
+    const index = fixtures.findIndex(f => f.id === this.fixtureIndex);
+    console.log(index);
 
-    if (this.fixtures.length === this.fixtureIndex) {
+    if (index === -1) {
       fixtures.push(this.fixture!);
+
+      // creating a new fixture, allow it to be placed immediately
+      this.#updatePlacementIndex(this.fixtureIndex);
     } else {
-      fixtures.splice(this.fixtureIndex!, 1, this.fixture!);
+      fixtures.splice(index, 1, this.fixture!);
     }
 
     this.fixtures = fixtures;
@@ -175,21 +169,17 @@ export default class Fixtures extends HLMElement {
     HLMStorage.store('fixtures', fixtures, this.activeMapKey);
 
     this.emit('hlm-event-fixture-update');
-
-    if (close) {
-      this.fixtureModal!.close();
-    }
   }
 
-  #renderFixture(fixture: Fixture, index: number) {
-    const currentIndex = index === this._fixturePlacementIndex;
+  #renderFixture(fixture: Fixture) {
+    const currentIndex = fixture.id === this.fixturePlacementIndex;
     const name = `${currentIndex ? '** ' : ''}${fixture.name}${currentIndex ? ' **' : ''}`;
     const place = currentIndex ? 'Finish' : 'Set';
     return html`
       <li class="fixture-row">
         <span><strong>${name}</strong> ${fixture?.width}" x ${fixture?.height}"</span>
         <button data-id=${fixture.id} @click=${this.#setFixtureDetails}>Update</button>
-        <button data-id=${fixture.id} @click=${this.#setPlacement}>${place} Placement</button>
+        <button data-id=${fixture.id} @click=${this.#setFixtureToPlace}>${place} Placement</button>
         <button data-id=${fixture.id} @click=${this.#removeFixture}>Delete</button>
       </li>
     `;
@@ -215,7 +205,7 @@ export default class Fixtures extends HLMElement {
       <dialog id="fixture">
         <div class="fixture-edit-row">
           <label for="name">Name</label>
-          <input id="name" name="name" type="text" .value=${this.fixture?.name ?? ''} />
+          <input id="name" name="name" type="text" .value=${this.fixture?.name ?? ''} @change=${this.#updateFixtureName} />
         </div>
 
         <hlm-size-input 
@@ -230,17 +220,15 @@ export default class Fixtures extends HLMElement {
 
         <div class="fixture-canvas">
           <strong>Fixture Layout</strong>
-          <div class="inner" @click=${this.#setFixtureLed}></div>
+          <hlm-canvas
+            .height=${this._calculatedHeight}
+            .width=${this._calculatedWidth}
+            @hlm-event-canvas-click=${this.#setFixtureLed}
+          ></hlm-canvas>
         </div>
 
-        <button @click=${this.#updateFixtureName}>${this.fixtureIndex !== undefined ? 'Update' : 'Create'}</button>
+        <button @click=${() => this.fixtureModal!.close()}>${this.fixtureIndex !== undefined ? 'Update' : 'Create'}</button>
       </dialog>
-
-      <style>
-        .fixture-canvas .inner {
-          height: ${this._calculatedHeight}px;
-        }
-      </style>
 
     `;
   }
@@ -293,9 +281,8 @@ export default class Fixtures extends HLMElement {
       margin: 0.5rem 0;
     }
 
-    .fixture-canvas .inner {
+    hlm-canvas {
       width: 100%;
-      background: #ede2ef;
     }
   `;
 }

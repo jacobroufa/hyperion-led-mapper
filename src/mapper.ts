@@ -2,16 +2,21 @@ import { css, html } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 
 import HLMElement from './element';
+import HLMStorage from './storage';
 
 import type Display from './display';
 import type { Fixture, HLMKey } from './types';
-import { HLMStorage } from '.';
 
 @customElement('hyperion-led-mapper')
 export default class Mapper extends HLMElement {
   @property({ type: Array }) fixtures: Fixture[] = [];
+  @property({ type: Number }) fixturePlacementId: number = -1;
 
   @query('hlm-display') display?: Display;
+
+  #setFixturePlacementId(event: CustomEvent<{ index: number }>) {
+    this.fixturePlacementId = event.detail.index;
+  }
 
   #updateFixtures() {
     this.fixtures = HLMStorage.retrieve('fixtures', this.activeMapKey);
@@ -24,8 +29,16 @@ export default class Mapper extends HLMElement {
   render() {
     return html`
       <hlm-maps @hlm-event-map-change=${this.#updateMap}></hlm-maps>
-      <hlm-fixtures .active-map-key=${this.activeMapKey} @hlm-event-fixture-update=${this.#updateFixtures}></hlm-fixtures>
-      <hlm-display .active-map-key=${this.activeMapKey} .fixtures=${this.fixtures}></hlm-display>
+      <hlm-fixtures
+        .activeMapKey=${this.activeMapKey}
+        @hlm-event-fixture-update=${this.#updateFixtures}
+        @hlm-event-fixture-placement=${this.#setFixturePlacementId}>
+      </hlm-fixtures>
+      <hlm-display
+        .activeMapKey=${this.activeMapKey}
+        .fixtures=${this.fixtures}
+        .fixtureId=${this.fixturePlacementId}>
+      </hlm-display>
     `;
   }
 
