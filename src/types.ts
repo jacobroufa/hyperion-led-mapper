@@ -13,3 +13,8 @@ export type Fixture = {
   coords: [number, number];
   leds?: LedLayout[];
 };
+
+export type GlobalKeys = {
+    hlm?: HLMStorageKey;
+    fixture?: number;
+};

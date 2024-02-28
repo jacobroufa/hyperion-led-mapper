@@ -1,4 +1,5 @@
-import type { HLMStorageKey } from "./types";
+import HLMStorage from "./storage";
+import type { GlobalKeys, HLMStorageKey } from "./types";
 
 async function onMapKeyUpdate(key: HLMStorageKey) {
   const screen = document.body.querySelector('hlm-screen');
@@ -21,11 +22,7 @@ async function onFixtureUpdate(fixtureId: number) {
   }
 }
 
-type GlobalKeys = {
-    hlm?: HLMStorageKey;
-    fixture?: number;
-};
-
+/* TODO: Replace this Proxy object with events that can be typed properly */
 const _keys: GlobalKeys = {};
 export const keyProxy = new Proxy(_keys, {
   set: function(target, key, value) {
@@ -45,5 +42,17 @@ export const keyProxy = new Proxy(_keys, {
       default:
         return false;
     }
+  }
+});
+
+const fix = document.body.querySelector('hlm-fixtures');
+const screen = document.body.querySelector('hlm-screen');
+
+document.body.addEventListener('hlm-fixture-update', () => {
+  if (screen) {
+    screen.fixtures = HLMStorage.retrieve('fixtures', screen.activeMapKey);
+  }
+  if (fix) {
+    fix.fixtures = HLMStorage.retrieve('fixtures', fix.activeMapKey);
   }
 });
