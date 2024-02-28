@@ -72,7 +72,11 @@ export default class Screen extends LitElement {
       if (led[key] > 1) led[key] = 1;
     });
 
-    console.log(led);
+    const relativeFixtureHeight = (this._fixture?.height ?? 0) / this.height;
+    const relativeFixtureWidth = (this._fixture?.width ?? 0) / this.width;
+    const displayHeight = parseInt((relativeFixtureHeight * height).toFixed(), 10);
+    const displayWidth = parseInt((relativeFixtureWidth * width).toFixed(), 10);
+    console.log(led, this._fixture, relativeFixtureHeight, relativeFixtureWidth, displayHeight, displayWidth);
     // TODO: do something with this... define LED fixture?
   }
 

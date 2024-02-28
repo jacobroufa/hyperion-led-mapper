@@ -133,7 +133,7 @@ export default class Maps extends LitElement {
     }
 
     strong {
-      min-width: 10vw;
+      min-width: 15vw;
     }
   `;
 }

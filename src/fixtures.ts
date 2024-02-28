@@ -135,7 +135,7 @@ export default class Fixtures extends LitElement {
     const place = currentIndex ? 'Finish' : 'Set';
     return html`
       <li class="fixture-row">
-        <strong>${name}</strong>
+        <span><strong>${name}</strong> ${fixture?.width}" x ${fixture?.height}"</span>
         <button data-id=${fixture.id} @click=${this.#setFixtureDetails}>Update</button>
         <button data-id=${fixture.id} @click=${this.#setPlacement}>${place} Placement</button>
         <button data-id=${fixture.id} @click=${this.#removeFixture}>Delete</button>
@@ -213,8 +213,8 @@ export default class Fixtures extends LitElement {
       gap: 0.5rem;
     }
 
-    .fixture-row strong {
-      min-width: 10vw;
+    .fixture-row > span {
+      min-width: 15vw;
     }
 
     dialog[open] {
