@@ -14,26 +14,33 @@ export default class Fixtures extends LitElement {
   @state() fixture?: Fixture;
   @state() fixtureIndex?: number;
   @state() _fixturePlacementIndex?: number;
+  @state() _calculatedHeight: number = 0;
 
+  @query('details') fixtureList?: HTMLDetailsElement;
   @query('#fixture') fixtureModal?: HTMLDialogElement;
   @query('#name') fixtureName?: HTMLInputElement;
-  @query('#height') fixtureHeight?: HTMLInputElement;
-  @query('#width') fixtureWidth?: HTMLInputElement;
+  @query('.fixture-canvas .inner') fixtureCanvas?: HTMLDivElement;
 
   constructor() {
     super();
     this.#setLocalProps();
   }
 
-  updated(changedProperties: Map<keyof Fixtures, Fixtures[keyof Fixtures]>) {
-    const newMapKey = changedProperties.get('activeMapKey');
-    if ((!newMapKey || newMapKey === this.activeMapKey) || !this.activeMapKey) return;
-    this.#setLocalProps();
+  updated(_changedProperties: Map<keyof Fixtures, Fixtures[keyof Fixtures]>): void {
+    const key = _changedProperties.get('activeMapKey');
+    if (_changedProperties.has('activeMapKey') && key !== this.activeMapKey) {
+      this.#setLocalProps();
+    }
   }
 
   #setLocalProps() {
     if (!this.activeMapKey) return;
+
     this.fixtures = HLMStorage.retrieve('fixtures', this.activeMapKey) ?? [];
+
+    if (this.fixtureList) {
+      this.fixtureList.open = !!this.fixtures.length;
+    }
   }
 
   #setFixtureDetails(event: MouseEvent) {
@@ -55,6 +62,8 @@ export default class Fixtures extends LitElement {
     }
 
     this.fixtureModal!.showModal();
+
+    this.#setCanvasSize();
   }
 
   #setPlacement(event: MouseEvent) {
@@ -77,32 +86,58 @@ export default class Fixtures extends LitElement {
     HLMStorage.store('fixtures', this.fixtures, this.activeMapKey);
   }
 
-  #updateFixture() {
+  #updateFixtureDimensions(event: CustomEvent<[number, number]>) {
+    const [width, height] = event.detail;
     const fix = this.fixture!;
-    fix.name = this.fixtureName!.value;
-    fix.height = parseFloat(this.fixtureHeight!.value);
-    fix.width = parseFloat(this.fixtureWidth!.value);
+    fix.height = height;
+    fix.width = width;
 
     this.fixture = fix;
 
+    this.#setCanvasSize();
+    this.#updateFixture(false);
+  }
+
+  #setCanvasSize() {
+    if (!this.fixtureCanvas) return;
+
+    const multiplier = this.fixture!.height / this.fixture!.width;
+    this._calculatedHeight = multiplier * this.fixtureCanvas!.offsetWidth;
+  }
+
+  #updateFixtureName() {
+    const fix = this.fixture!;
+    fix.name = this.fixtureName!.value;
+
+    this.fixture = fix;
+
+    this.#updateFixture();
+  }
+
+  #updateFixture(close: boolean = true) {
     if (this.fixtures.length === this.fixtureIndex) {
-      this.fixtures.push(fix);
+      this.fixtures.push(this.fixture!);
     } else {
-      this.fixtures.splice(this.fixtureIndex!, 1, fix);
+      this.fixtures.splice(this.fixtureIndex!, 1, this.fixture!);
     }
     this.requestUpdate();
 
     HLMStorage.store('fixtures', this.fixtures, this.activeMapKey);
 
-    this.fixtureModal!.close();
+    if (close) {
+      this.fixtureModal!.close();
+    }
   }
 
   #renderFixture(fixture: Fixture, index: number) {
+    const currentIndex = index === this._fixturePlacementIndex;
+    const name = `${currentIndex ? '** ' : ''}${fixture.name}${currentIndex ? ' **' : ''}`;
+    const place = currentIndex ? 'Finish' : 'Set';
     return html`
       <li class="fixture-row">
-        <strong>${index === this._fixturePlacementIndex ? '* ' : ''}${fixture.name}</strong>
+        <strong>${name}</strong>
         <button data-id=${fixture.id} @click=${this.#setFixtureDetails}>Update</button>
-        <button data-id=${fixture.id} @click=${this.#setPlacement}>Set Placement</button>
+        <button data-id=${fixture.id} @click=${this.#setPlacement}>${place} Placement</button>
         <button data-id=${fixture.id} @click=${this.#removeFixture}>Delete</button>
       </li>
     `;
@@ -115,7 +150,7 @@ export default class Fixtures extends LitElement {
 
     return html`
       <details>
-        <summary>Fixtures</summary>
+        <summary>Fixtures (${this.fixtures.length})</summary>
 
         <ul class="fixture-container">
           ${this.fixtures.map(this.#renderFixture.bind(this))}
@@ -130,16 +165,31 @@ export default class Fixtures extends LitElement {
           <label for="name">Name</label>
           <input id="name" name="name" type="text" .value=${this.fixture?.name ?? ''} />
         </div>
-        <div class="fixture-edit-row">
-          <label for="height">Height</label>
-          <input id="height" name="height" type="text" .value=${(this.fixture?.height ?? 0).toString()} />
+
+        <hlm-size-input 
+          class="fixture-edit-input"
+          .height=${(this.fixture?.height ?? 0)}
+          .width=${this.fixture?.width ?? 0}
+          unit="in"
+          flexDirection="column"
+          @resize=${this.#updateFixtureDimensions}>
+          Dimensions
+        </hlm-size-input>
+
+        <div class="fixture-canvas">
+          <strong>Fixture Layout</strong>
+          <div class="inner"></div>
         </div>
-        <div class="fixture-edit-row">
-          <label for="width">Width</label>
-          <input id="width" name="width" type="text" .value=${(this.fixture?.width ?? 0).toString()} />
-        </div>
-        <button @click=${this.#updateFixture}>${this.fixtureIndex !== undefined ? 'Update' : 'Create'}</button>
+
+        <button @click=${this.#updateFixtureName}>${this.fixtureIndex !== undefined ? 'Update' : 'Create'}</button>
       </dialog>
+
+      <style>
+        .fixture-canvas .inner {
+          height: ${this._calculatedHeight}px;
+        }
+      </style>
+
     `;
   }
 
@@ -163,7 +213,7 @@ export default class Fixtures extends LitElement {
       gap: 0.5rem;
     }
 
-    strong {
+    .fixture-row strong {
       min-width: 10vw;
     }
 
@@ -180,6 +230,20 @@ export default class Fixtures extends LitElement {
       justify-content: space-between;
       gap: 1rem;
       width: 100%;
+    }
+
+    .fixture-edit-input, .fixture-canvas {
+      width: 100%;
+    }
+
+    .fixture-canvas strong {
+      display: inline-block;
+      margin: 0.5rem 0;
+    }
+
+    .fixture-canvas .inner {
+      width: 100%;
+      background: #ede2ef;
     }
   `;
 }

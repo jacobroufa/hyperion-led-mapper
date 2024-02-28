@@ -72,8 +72,10 @@ export default class Maps extends LitElement {
     if (HLMStorage.isKey(key) && window.confirm('Are you sure you want to delete this map?')) {
       HLMStorage.remove(key);
       this.keys = this.keys.filter(k => k !== key)
-      this.key = undefined;
-      keyProxy.hlm = undefined;
+      if (key === this.key) {
+        this.key = undefined;
+        keyProxy.hlm = undefined;
+      }
     }
   }
 

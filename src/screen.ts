@@ -17,8 +17,11 @@ export default class Screen extends LitElement {
   @property({ type: Number }) width = 0;
   @property({ type: Number }) aspectMultiplier = 0;
   @property({ type: String }) aspectRatio: AspectRatio = '16:10';
+  @property({ type: Array }) fixtures: Fixture[] = []
 
+  /* height of the displayed "screen" */
   @state() _calculatedHeight = 0;
+  /* active fixture having placement adjusted */
   @state() _fixture?: Fixture;
 
   @query('.screen') screenDiv?: HTMLDivElement;
@@ -30,23 +33,25 @@ export default class Screen extends LitElement {
 
   updated(_changedProperties: Map<keyof Screen, Screen[keyof Screen]>): void {
     const key = _changedProperties.get('activeMapKey');
-    if (key !== this.activeMapKey) {
+    if (_changedProperties.has('activeMapKey') && key !== this.activeMapKey) {
       this.#setLocalProps();
     }
 
     const fixtureId = _changedProperties.get('fixtureId');
     if (_changedProperties.has('fixtureId') && fixtureId !== this.fixtureId) {
-      const fixtures = HLMStorage.retrieve<Fixture[]>('fixtures', this.activeMapKey);
-      this._fixture = fixtures.find(f => f.id === this.fixtureId);
+      this._fixture = this.fixtures.find(f => f.id === this.fixtureId);
     }
   }
 
   #setLocalProps() {
     if (!this.activeMapKey) return;
+
     this.height = HLMStorage.retrieve('height', this.activeMapKey) ?? 0;
     this.width = HLMStorage.retrieve('width', this.activeMapKey) ?? 0;
     this.aspectMultiplier = HLMStorage.retrieve('aspectMultiplier', this.activeMapKey) ?? 0;
-    this.aspectRatio = HLMStorage.retrieve('aspectRatio', this.activeMapKey);
+    this.aspectRatio = HLMStorage.retrieve('aspectRatio', this.activeMapKey) ?? '1:1';
+    this.fixtures = HLMStorage.retrieve<Fixture[]>('fixtures', this.activeMapKey) ?? [];
+
     this.#setScreenSize();
   }
 
@@ -127,8 +132,14 @@ export default class Screen extends LitElement {
 
       <hr />
 
-      <div class="screen" style="height: ${this._calculatedHeight}px" @click=${this.#mouseClick}>
+      <div class="screen" @click=${this.#mouseClick}>
       </div>
+
+      <style>
+        .screen {
+          height: ${this._calculatedHeight}px;
+        }
+      </style>
     `;
   }
 
@@ -144,7 +155,7 @@ export default class Screen extends LitElement {
 
     .input-container {
       display: flex;
-      gap: 1rem;
+      gap: 2rem;
       margin: 0 0.5rem;
     }
 
@@ -154,7 +165,7 @@ export default class Screen extends LitElement {
     }
 
     .screen {
-      background: #cac2cf;
+      background: #ede2ef;
       display: flex;
       align-items: center;
       justify-content: center;

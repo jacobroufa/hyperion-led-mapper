@@ -6,6 +6,7 @@ export default class SizeInput extends LitElement {
   @property({ type: Number }) height: number = 0;
   @property({ type: Number }) width: number = 0;
   @property({ type: String }) unit: string = 'px';
+  @property({ type: String }) flexDirection: 'row' | 'column' = 'row';
 
   #emitChange() {
     const event = new CustomEvent<[number, number]>('resize', {
@@ -28,28 +29,32 @@ export default class SizeInput extends LitElement {
 
   render() {
     return html`
-        <strong><slot></slot></strong>
+      <strong><slot></slot></strong>
 
-        <div class="size-inputs">
-            <div class="input">
-                <label for="width">Width</label>
-                <div class="input-container">
-                    <input name="width" type="number" @change=${this.#onWidthChange} .value=${this.width.toString()} />
-                </div>
-            </div>
-            <div class="input">
-                <label for="height">Height</label>
-                <div class="input-container">
-                    <input name="height" type="number" @change=${this.#onHeightChange} .value=${this.height.toString()} />
-                </div>
-            </div>
+      <div class="size-inputs">
+        <div class="input">
+          <label for="width">Width</label>
+          <div class="input-container">
+            <input name="width" type="number" @change=${this.#onWidthChange} .value=${this.width.toString()} />
+          </div>
         </div>
+        <div class="input">
+          <label for="height">Height</label>
+          <div class="input-container">
+            <input name="height" type="number" @change=${this.#onHeightChange} .value=${this.height.toString()} />
+          </div>
+        </div>
+      </div>
 
-        <style>
-          .input-container::after {
-            content: '${this.unit.trim()}';
-          }
-        </style>
+      <style>
+        .size-inputs {
+          flex-direction: ${this.flexDirection};
+        }
+
+        .input-container::after {
+          content: '${this.unit.trim()}';
+        }
+      </style>
     `;
   }
 
@@ -61,13 +66,14 @@ export default class SizeInput extends LitElement {
 
     .size-inputs {
       display: flex;
-      flex-direction: row;
       gap: 0.5rem;
-      max-width: 50%;
     }
 
     .input {
       flex: 1 0 auto;
+      display: flex;
+      justify-content: space-between;
+      gap: 0.5rem;
     }
 
     .input-container {
