@@ -8,11 +8,15 @@ export type AspectRatio = '1:1' | '4:3' | '16:9' | '16:10';
 export type LedLayoutKey = 'hmax' | 'hmin' | 'vmax' | 'vmin';
 export type LedLayout = { [k in LedLayoutKey]: number };
 
+export type FixtureShape = 'square' | 'circle' | 'star' | 'poly' | 'blob' | 'custom';
+
 export type Fixture = {
   id: number;
   name: string;
   height: number;
   width: number;
   coords: [number, number];
+  shape?: FixtureShape;
+  vertices?: number;
   leds?: LedLayout[];
 };

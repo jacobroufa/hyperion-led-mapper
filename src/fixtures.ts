@@ -1,14 +1,20 @@
 import { css, html } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
+import { when } from 'lit/directives/when.js';
+import { SVG } from '@svgdotjs/svg.js';
+import '@svgdotjs/svg.topath.js';
 
 import './size-input.ts';
+import './svg.shapes.js';
 
 import HLMCanvas from './canvas.ts';
 import HLMElement from './element';
 import HLMStorage from './storage';
 import watch from './watch.ts';
 
-import type { Fixture, HLMCanvasClickEvent } from './types';
+import type { Fixture, FixtureShape, HLMCanvasClickEvent } from './types';
+import { Point } from '@svgdotjs/svg.js';
+import { PointArray } from '@svgdotjs/svg.js';
 
 @customElement('hlm-fixtures')
 export default class Fixtures extends HLMElement {
@@ -22,6 +28,9 @@ export default class Fixtures extends HLMElement {
   @query('details') fixtureList?: HTMLDetailsElement;
   @query('#fixture') fixtureModal?: HTMLDialogElement;
   @query('#name') fixtureName?: HTMLInputElement;
+  @query('#shape-select') fixtureShape?: HTMLSelectElement;
+  @query('#poly-select') fixtureVertices?: HTMLSelectElement;
+  @query('#shape-upload') fixtureSVGUpload?: HTMLInputElement;
   @query('hlm-canvas') fixtureCanvas?: HLMCanvas;
 
   constructor() {
@@ -103,7 +112,6 @@ export default class Fixtures extends HLMElement {
     this.fixture = fix;
 
     this.#setCanvasSize();
-    this.#updateFixture();
   }
 
   #setCanvasSize() {
@@ -112,6 +120,8 @@ export default class Fixtures extends HLMElement {
     const multiplier = this.fixture!.height / this.fixture!.width;
     this._calculatedHeight = multiplier * this.fixtureCanvas!.offsetWidth;
     this._calculatedWidth = this.fixtureCanvas!.offsetWidth;
+
+    this.#updateFixture(true);
   }
 
   #setFixtureLed(event: CustomEvent<HLMCanvasClickEvent>) {
@@ -148,10 +158,42 @@ export default class Fixtures extends HLMElement {
     this.#updateFixture();
   }
 
-  #updateFixture() {
+  #unsetFixtureShape() {
+    const fix = this.fixture!;
+    fix.shape = undefined;
+
+    this.fixture = fix;
+
+    this.#updateFixture();
+  }
+
+  #updateFixtureShape() {
+    const fix = this.fixture!;
+    fix.shape = this.fixtureShape!.value as FixtureShape;
+
+    this.fixture = fix;
+
+    this.#updateFixture(true);
+  }
+
+  #updateFixtureVertices() {
+    const fix = this.fixture!;
+    fix.vertices = parseInt(this.fixtureVertices!.value, 10);
+
+    this.fixture = fix;
+
+    this.#updateFixture(true);
+  }
+
+  // TODO: implement SVG upload
+  #uploadShape() {
+    alert('uploading shape... see console for details...');
+    console.log(this.fixtureSVGUpload?.files);
+  }
+
+  #updateFixture(drawSvg = false) {
     const fixtures = [...this.fixtures];
     const index = fixtures.findIndex(f => f.id === this.fixtureIndex);
-    console.log(index);
 
     if (index === -1) {
       fixtures.push(this.fixture!);
@@ -169,9 +211,66 @@ export default class Fixtures extends HLMElement {
     HLMStorage.store('fixtures', fixtures, this.activeMapKey);
 
     this.emit('hlm-event-fixture-update');
+
+    if (drawSvg) {
+      const canvas = this.fixtureCanvas?.querySelector('svg');
+      const drawing = canvas ? SVG(canvas).clear() : SVG().addTo(this.fixtureCanvas!);
+
+      // ensure we are appropriately sized for the new fixture, should it change
+      drawing.size(this._calculatedWidth, this._calculatedHeight);
+
+      const strokeWidth = 2;
+      const available = Math.min(this._calculatedWidth, this._calculatedHeight) / 2;
+      let shape;
+
+      switch (this.fixture?.shape) {
+        case 'square':
+          shape = drawing.rect(this._calculatedWidth - (strokeWidth * 2), this._calculatedHeight - (strokeWidth * 2))
+            .toPath().fill('none').stroke({ color: '#222', width: strokeWidth }).move(strokeWidth, strokeWidth);
+          break;
+        case 'circle':
+          shape = drawing.ellipse(this._calculatedWidth - (strokeWidth * 2), this._calculatedHeight - (strokeWidth * 2))
+            .toPath().fill('none').stroke({ color: '#222', width: strokeWidth }).move(strokeWidth, strokeWidth);
+          break;
+        case 'star':
+          shape = drawing.polygon().star({ outer: available, inner: available * 0.4, spikes: this.fixture.vertices })
+            .toPath().fill('none').stroke({ color: '#222', width: strokeWidth }).move(strokeWidth, strokeWidth);
+          break;
+        case 'poly':
+          shape = drawing.polygon().ngon({ radius: available, edges: this.fixture.vertices })
+            .toPath().fill('none').stroke({ color: '#222', width: strokeWidth }).move(strokeWidth, strokeWidth);
+          break;
+        case undefined:
+        default:
+          break;
+      }
+
+      const len = shape.length()
+      let arr: Array<any> | PointArray = new PointArray([]);
+      for (let i = 0; i < len; i += (len / 31)) {
+        let r = drawing.rect(5, 5)
+        let p = new Point(shape.pointAt(i))
+        r.move(p.x - 2.5, p.y - 2.5)
+        arr.push(p.toArray())
+      }
+
+      arr = arr.map(([x, y]) => ({
+        hmin: x - 2.5,
+        hmax: x + 2.5,
+        vmin: y - 2.5,
+        vmax: y + 2.5
+      })).map(led => ({
+        hmin: led.hmin < 0 ? 0 : led.hmin,
+        hmax: led.hmin < 0 ? led.hmax + led.hmin : led.hmax,
+        vmin: led.vmin < 0 ? 0 : led.vmin,
+        vmax: led.vmin < 0 ? led.vmax + led.vmin : led.vmax
+      }));
+
+      console.log(arr)
+    }
   }
 
-  #renderFixture(fixture: Fixture) {
+  #renderFixtureRow(fixture: Fixture) {
     const currentIndex = fixture.id === this.fixturePlacementIndex;
     const name = `${currentIndex ? '** ' : ''}${fixture.name}${currentIndex ? ' **' : ''}`;
     const place = currentIndex ? 'Finish' : 'Set';
@@ -195,7 +294,7 @@ export default class Fixtures extends HLMElement {
         <summary>Fixtures (${this.fixtures.length})</summary>
 
         <ul class="fixture-container">
-          ${this.fixtures.map(this.#renderFixture.bind(this))}
+          ${this.fixtures.map(this.#renderFixtureRow.bind(this))}
           <li>
             <button data-id="create" @click=${this.#setFixtureDetails}>Add Fixture</button>
           </li>
@@ -203,6 +302,8 @@ export default class Fixtures extends HLMElement {
       </details>
 
       <dialog id="fixture">
+        <strong>Fixture Layout</strong>
+
         <div class="fixture-edit-row">
           <label for="name">Name</label>
           <input id="name" name="name" type="text" .value=${this.fixture?.name ?? ''} @change=${this.#updateFixtureName} />
@@ -218,8 +319,41 @@ export default class Fixtures extends HLMElement {
           Dimensions
         </hlm-size-input>
 
+        <div class="fixture-edit-input">
+          <strong>Shape</strong>
+          ${when(this.fixture?.shape !== 'custom', () => html`
+            <div class="input">
+              <label for="shape-select">Pick one:</label>
+              <select .value=${this.fixture?.shape as string} name="shape-select" id="shape-select" @change=${this.#updateFixtureShape}>
+                <option>---------</option>
+                <option value="square" .selected=${this.fixture?.shape === 'square'}>Rectangle</option>
+                <option value="circle" .selected=${this.fixture?.shape === 'circle'}>Ellipse</option>
+                <option value="star" .selected=${this.fixture?.shape === 'star'}>Star</option>
+                <option value="poly" .selected=${this.fixture?.shape === 'poly'}>Polygon</option>
+                <option value="blob" .selected=${this.fixture?.shape === 'blob'}>Blob</option>
+                <option value="custom" .selected=${this.fixture?.shape === 'custom'}>Custom</option>
+              </select>
+            </div>
+            <div class="help">Note, rectangle and ellipse shapes will conform to a square or circle if height and width are equal.</div>
+          `, () => html`
+            <div class="input">
+              <label for="shape-upload">Upload SVG:</label>
+              <input type="file" name="shape-upload" id="shape-upload" accept="image/svg+xml" />
+            </div>
+            <div class="input">
+              <button @click=${this.#unsetFixtureShape}>Select pre-defined shape</button>
+              <button @click=${this.#uploadShape}>Upload custom shape</button>
+            </div>
+          `)}
+          ${when(this.fixture?.shape === 'star' || this.fixture?.shape === 'poly', () => html`
+            <div class="input">
+              <label for="poly-select">Number of vertices:</label>
+              <input type="number" .value=${this.fixture?.vertices?.toString() || ''} name="poly-select" id="poly-select" @change=${this.#updateFixtureVertices} />
+            </div>
+          `)}
+        </div>
+
         <div class="fixture-canvas">
-          <strong>Fixture Layout</strong>
           <hlm-canvas
             .height=${this._calculatedHeight}
             .width=${this._calculatedWidth}
@@ -229,7 +363,6 @@ export default class Fixtures extends HLMElement {
 
         <button @click=${() => this.fixtureModal!.close()}>${this.fixtureIndex !== undefined ? 'Update' : 'Create'}</button>
       </dialog>
-
     `;
   }
 
@@ -265,6 +398,11 @@ export default class Fixtures extends HLMElement {
       align-items: flex-end;
     }
 
+    dialog strong {
+      align-self: flex-start;
+      display: inline-block;
+    }
+
     .fixture-edit-row {
       display: flex;
       justify-content: space-between;
@@ -276,9 +414,22 @@ export default class Fixtures extends HLMElement {
       width: 100%;
     }
 
-    .fixture-canvas strong {
+    .fixture-edit-input strong {
       display: inline-block;
       margin: 0.5rem 0;
+    }
+
+    .fixture-edit-input .input {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+    }
+
+    .fixture-edit-input .help {
+      font-size: 85%;
+      margin-bottom: 0.5rem;
+      max-width: 300px;
     }
 
     hlm-canvas {
