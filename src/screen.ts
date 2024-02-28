@@ -1,5 +1,7 @@
 import { LitElement, css, html } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
+
+import SizeInput from './size-input.ts';
 
 @customElement('hlm-screen')
 export default class Screen extends LitElement {
@@ -8,139 +10,75 @@ export default class Screen extends LitElement {
   @property({ type: Number }) rHeight = 800;
   @property({ type: Number }) rWidth = 1200;
 
-  #onDWidthChange(event) {
-    this.dWidth = parseFloat(event.currentTarget.value);
+  @state({ type: Number }) _calculatedHeight = 0;
+
+  @query('.screen') screenDiv;
+
+  firstUpdated() {
+    this.#setScreenSize();
   }
 
-  #onDHeightChange(event) {
-    this.dHeight = parseFloat(event.currentTarget.value);
+  #setScreenSize() {
+    const h = ((this.dHeight / this.dWidth) * this.screenDiv.offsetWidth).toFixed();
+    this._calculatedHeight = h;
   }
 
-  #onRWidthChange(event) {
-    this.rWidth = parseFloat(event.currentTarget.value);
+  #setDimensions(event) {
+    const [width, height] = event.detail;
+    this.dHeight = height;
+    this.dWidth = width;
+    console.log(width, height)
+    this.#setScreenSize();
   }
 
-  #onRHeightChange(event) {
-    this.rHeight = parseFloat(event.currentTarget.value);
+
+  #setResolution(event) {
+    const [width, height] = event.detail;
+    this.rHeight = height;
+    this.rWidth = width;
   }
 
   render() {
     return html`
       <details>
-        <summary>Screen Size</summary>
+        <summary>
+          <div>
+            <span>Screen Size</span>
+            <span>${this.rWidth}x${this.rHeight}</span>
+            <span>${this.dWidth}" x ${this.dHeight}"</span>
+          </div>
+        </summary>
 
         <div class="input-container">
-          <div>
-            <h3>Physical Dimensions</h3>
-
-            <div class="size-inputs">
-              <div class="input">
-                <label for="dwidth">Width</label>
-                <div class="physical">
-                  <input name="dwidth" type="number" @change=${this.#onDWidthChange} value=${this.dWidth} />
-                </div>
-              </div>
-              <div class="input">
-                <label for="dheight">Height</label>
-                <div class="physical">
-                  <input name="dheight" type="number" @change=${this.#onDHeightChange} value=${this.dHeight} />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <h3>Screen Resolution</h3>
-
-            <div class="size-inputs">
-              <div class="input">
-                <label for="rwidth">Width</label>
-                <div class="resolution">
-                  <input name="rwidth" type="number" @change=${this.#onRWidthChange} value=${this.rWidth} />
-                </div>
-              </div>
-              <div class="input">
-                <label for="rheight">Height</label>
-                <div class="resolution">
-                  <input name="rheight" type="number" @change=${this.#onRHeightChange} value=${this.rHeight} />
-                </div>
-              </div>
-            </div>
-          </div>
+          <hlm-size-input height=${this.dHeight} width=${this.dWidth} unit="in" @resize=${this.#setDimensions}>
+            Physical Dimensions
+          </hlm-size-input>
+          <hlm-size-input height=${this.rHeight} width=${this.rWidth} unit="px" @resize=${this.#setResolution}>
+            Screen Resolution
+          </hlm-size-input>
         </div>
       </details>
 
       <hr />
 
-      <style>
-        .screen {
-          height: ${this.rHeight}px;
-          width: ${this.rWidth}px;
-        }
-      </style>
-      <div class="screen">
-        ${this.rWidth} X ${this.rHeight}
+      <div class="screen" style="height: ${this._calculatedHeight}px">
       </div>
     `;
   }
 
   static styles = css`
+    summary > div {
+      display: inline-flex;
+      justify-content: space-between;
+      width: 97%;
+    }
+
     .input-container {
       display: flex;
-      flex-direction: row;
       gap: 1rem;
     }
 
-    .input-container > div {
-      flex: 1 0 auto;
-    }
-
-    .input-container > div > h3 {
-      margin: 0.5rem 0;
-    }
-
-    .size-inputs {
-      display: flex;
-      flex-direction: row;
-      gap: 0.5rem;
-      max-width: 50%;
-    }
-
-    .physical, .resolution {
-      display: inline-block;
-      position: relative;
-    }
-
-    .physical::after,
-    .resolution::after {
-      position: absolute;
-      top: 1px;
-      right: 0.5rem;
-    }
-
-    .physical:hover::after,
-    .physical:focus-within::after,
-    .resolution:hover::after,
-    .resolution:focus-within::after {
-      right: 1.5rem;
-    }
-
-    @supports (-moz-appearance:none) {
-      .physical::after,
-      .resolution::after {
-        right: 1.5rem;
-      }
-    }
-
-    .physical::after {
-      content: 'in';
-    }
-
-    .resolution::after {
-      content: 'px';
-    }
-
-    .input {
+    .input-container > hlm-size-input {
       flex: 1 0 auto;
     }
 
@@ -151,6 +89,7 @@ export default class Screen extends LitElement {
       justify-content: center;
       font-size: 3rem;
       font-weight: 500;
+      width: 100%;
     }
   `;
 }
