@@ -8,7 +8,7 @@ export type AspectRatio = '1:1' | '4:3' | '16:9' | '16:10';
 export type LedLayoutKey = 'hmax' | 'hmin' | 'vmax' | 'vmin';
 export type LedLayout = { [k in LedLayoutKey]: number };
 
-export type FixtureShape = 'square' | 'circle' | 'star' | 'poly' | 'blob' | 'custom';
+export type FixtureShape = 'square' | 'circle' | 'star' | 'poly' | 'custom';
 export type FixtureLed = [ x: number, y: number ];
 
 export type Fixture = {

@@ -6,6 +6,12 @@
     "module": "ESNext",
     "lib": ["ES2021", "DOM", "DOM.Iterable"],
     "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "*": [
+        "*"
+      ]
+    },
 
     /* Bundler mode */
     "moduleResolution": "bundler",
@@ -20,5 +26,5 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src/*"]
 }

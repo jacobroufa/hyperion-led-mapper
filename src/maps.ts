@@ -83,6 +83,12 @@ export default class Maps extends HLMElement {
     }
   }
 
+  #exportMap(event: MouseEvent) {
+    const key: string | HLMKey = ((event.target as HTMLAnchorElement).dataset.key ?? '').trim();
+    alert(key);
+    // TODO: Create map LEDLayout[] based upon fixtures and LEDs
+  }
+
   #showModal() {
     this.dialog?.showModal();
   }
@@ -96,6 +102,9 @@ export default class Maps extends HLMElement {
         </button>
         <button @click=${this.#deleteKey} class="delete" data-key=${key}>
           Delete
+        </button>
+        <button @click=${this.#exportMap} class="export" data-key=${key}>
+          Export
         </button>
       </li>
     `;
@@ -138,6 +147,10 @@ export default class Maps extends HLMElement {
 
     strong {
       min-width: 15vw;
+    }
+
+    button.export {
+      margin-left: 5rem
     }
   `;
 }

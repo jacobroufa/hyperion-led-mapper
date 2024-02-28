@@ -218,10 +218,12 @@ export default class Fixtures extends HLMElement {
             .toPath().fill('none').stroke({ color: '#222', width: strokeWidth }).move(strokeWidth, strokeWidth);
           break;
         case 'star':
+          // @ts-expect-error star should exist on Polygon because of index.d.ts definitions, but still errors
           shape = drawing.polygon().star({ outer: available, inner: available * 0.4, spikes: this.fixture.vertices })
             .toPath().fill('none').stroke({ color: '#222', width: strokeWidth }).move(strokeWidth, strokeWidth);
           break;
         case 'poly':
+          // @ts-expect-error ngon should exist on Polygon because of index.d.ts definitions, but still errors
           shape = drawing.polygon().ngon({ radius: available, edges: this.fixture.vertices })
             .toPath().fill('none').stroke({ color: '#222', width: strokeWidth }).move(strokeWidth, strokeWidth);
           break;
@@ -381,7 +383,6 @@ export default class Fixtures extends HLMElement {
                 <option value="circle" .selected=${this.fixture?.shape === 'circle'}>Ellipse</option>
                 <option value="star" .selected=${this.fixture?.shape === 'star'}>Star</option>
                 <option value="poly" .selected=${this.fixture?.shape === 'poly'}>Polygon</option>
-                <option value="blob" .selected=${this.fixture?.shape === 'blob'}>Blob</option>
                 <option value="custom" .selected=${this.fixture?.shape === 'custom'}>Custom</option>
               </select>
             </div>

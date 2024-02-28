@@ -1,5 +1,3 @@
-import { Polygon, Polyline, PointArray } from '@svgdotjs/svg.js';
-
 type StarSettings = {
   inner: number;
   outer: number;

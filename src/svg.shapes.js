@@ -1,5 +1,7 @@
 import { Polygon, Polyline, PointArray, SVG, extend } from '@svgdotjs/svg.js';
 
+/** Taken from: https://github.com/svgdotjs/svg.shapes.js/blob/master/src/svg.shapes.js */
+
 // Add builders to polygon
 extend([Polyline, Polygon], {
     // Dynamic star shape
